@@ -1,0 +1,7 @@
+{
+  "name": "bcprov-jdk15to18",
+  "version": "1.78.1",
+  "url": "https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk15to18/1.78.1/bcprov-jdk15to18-1.78.1.jar",
+  "sha256": "b6758a0a72ed44dfdb316e50a67919cc4640e160a26b8a7e9d989cdcb3fc8a7f",
+  "license": "MIT"
+}

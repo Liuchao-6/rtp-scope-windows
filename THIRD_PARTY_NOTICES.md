@@ -21,3 +21,12 @@ The complete upstream license is retained inside the dependency JAR and in `src/
 ## Build and test tools
 
 Eclipse ECJ is a build-only compiler and is not shipped in the portable application or source ZIP. FFmpeg was used as an independent decoder oracle for the synthetic G.729 reference fixture; FFmpeg is not included. Wireshark / tshark and Npcap are optional, separately installed tools and are not bundled.
+
+
+## Concentus Opus
+
+Source: https://github.com/lostromb/concentus. Fixed revision and the SHA-256 of each unchanged Java source are in `third_party/concentus-upstream.json`. BSD-3-Clause license is included in the application assets/resources as `licenses/concentus-LICENSE.txt`. Stereo RTP audio is downmixed into a mono direction track; Opus playback retains 48 kHz output.
+
+## Bouncy Castle lightweight cryptography
+
+Component: bcprov-jdk15to18 1.78.1, MIT license. Source URL and SHA-256 are in `third_party/bouncycastle.json`. The unmodified binary provides authenticated TLS record cipher primitives; no global security provider is registered. The complete license is included as `licenses/bouncycastle-LICENSE.txt`.

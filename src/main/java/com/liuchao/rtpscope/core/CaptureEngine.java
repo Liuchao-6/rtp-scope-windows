@@ -50,6 +50,7 @@ public final class CaptureEngine {
         PacketStore store;long payloadOffset;int storedLength;
         public int payloadSize(){return payload==null?storedLength:payload.length;}
         public byte[] payload()throws IOException{return payload==null?store.bytes(payloadOffset,storedLength):payload;}
+        byte[] prefix(int length)throws IOException{length=Math.min(length,payloadSize());return payload==null?store.bytes(payloadOffset,length):Arrays.copyOf(payload,length);}
     }
     public static final class RtpStream {
         public String src, dst, srcIp, dstIp, codec = "未知", callId = "", note = "";
@@ -59,7 +60,7 @@ public final class CaptureEngine {
         public List<RtpPacket> packets = new ArrayList<>();
         public final List<DtmfParser.Event> events = new ArrayList<>();
         public QualityAnalyzer.Report quality;
-        public boolean playable() { return !encrypted && clock == 8000 && (codec.equals("PCMA") || codec.equals("PCMU") || codec.equals("G729") || codec.equals("G729A")); }
+        public boolean playable() { return !encrypted && ((clock==48000&&codec.equals("OPUS"))||(clock == 8000 && (codec.equals("PCMA") || codec.equals("PCMU") || codec.equals("G729") || codec.equals("G729A")))); }
         public boolean isDtmf() { return codec.equals("TELEPHONE-EVENT") || codec.equals("RTPEVENT") || codec.equals("RTP-EVENT"); }
         public String transportKey() { return src+">"+dst+"/"+ssrc; }
         public long firstUs() { return packets.get(0).timeUs; }
@@ -70,7 +71,7 @@ public final class CaptureEngine {
             for (RtpPacket p : packets) {
                 long delta = (int)(p.timestamp - base);
                 min = Math.min(min, delta);
-                max = Math.max(max, delta + (playable() ? AudioRenderer.sampleCount(this,p.payloadSize()) : 0));
+                max = Math.max(max, delta + (playable() ? AudioRenderer.sampleCount(this,p) : 0));
             }
             return (max - min) / (double)clock;
         }
@@ -93,7 +94,7 @@ public final class CaptureEngine {
         long anchor;
         List<Segment> segments = new ArrayList<>();
     }
-    private static final class Span {
+    static final class Span {
         int offset;
         long time;
         Span(int offset,long time) { this.offset=offset; this.time=time; }
@@ -111,6 +112,7 @@ public final class CaptureEngine {
     private final List<Media> media = new ArrayList<>();
     private int mediaBytes, tcpBytes;
     private long packetLimit=500000;
+    private TlsKeyLog keyLog=TlsKeyLog.empty();
     private boolean validHeader;
     private static final class FormatException extends IOException {
         FormatException(String message){super(message);}
@@ -122,11 +124,17 @@ public final class CaptureEngine {
     private void recovered(long offset,String reason){result.partial=true;result.warn("文件不完整或局部损坏，字节 "+offset+"："+reason+"；已保留可解析的包");}
 
     public static Analysis read(InputStream input) throws IOException {
-        return read(input,null,null);
+        return read(input,TlsKeyLog.empty());
+    }
+    public static Analysis read(InputStream input,TlsKeyLog keys)throws IOException {
+        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);return read(input,engine,null);
     }
     public interface Progress {void update(long bytes,long packets);}
     public static Analysis readLarge(InputStream input,File cacheDirectory,Progress progress)throws IOException{
-        CaptureEngine engine=new CaptureEngine();engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(cacheDirectory);
+        return readLarge(input,cacheDirectory,progress,TlsKeyLog.empty());
+    }
+    public static Analysis readLarge(InputStream input,File cacheDirectory,Progress progress,TlsKeyLog keys)throws IOException{
+        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(cacheDirectory);
         try{return read(input,engine,progress);}catch(IOException|RuntimeException e){try{engine.result.close();}catch(IOException ignored){}throw e;}
     }
     private static Analysis read(InputStream input,CaptureEngine supplied,Progress progress)throws IOException{
@@ -401,7 +409,7 @@ public final class CaptureEngine {
                 try { bodyLen=Integer.parseInt(declared); }
                 catch (NumberFormatException e) { result.warn("SIP Content-Length 无效"); return; }
                 if (bodyLen<0 || bodyLen>4*1024*1024) { result.warn("SIP 消息体长度超出限制"); return; }
-            } else if (transport.equals("UDP")) bodyLen=data.length-bodyStart;
+            } else if (transport.equals("UDP")||transport.equals("WS")||transport.equals("WSS")) bodyLen=data.length-bodyStart;
             if (bodyLen>data.length-bodyStart) { result.warn("SIP 消息体不完整"); return; }
             message.raw=new String(data,cursor,bodyStart+bodyLen-cursor,StandardCharsets.UTF_8);
             message.body=new String(data,bodyStart,bodyLen,StandardCharsets.UTF_8);
@@ -415,7 +423,9 @@ public final class CaptureEngine {
         }
     }
     private void finish() throws IOException {
+        List<SignalingTransport.Data> signals=new ArrayList<>();int direction=0;
         for (TcpFlow f : tcp) {
+            final int id=direction++;boolean gap=false;
             f.segments.sort((a,b)->Long.compare((int)(a.seq-f.anchor),(int)(b.seq-f.anchor)));
             ByteArrayOutputStream buffer=new ByteArrayOutputStream();
             List<Span> spans=new ArrayList<>();
@@ -423,8 +433,8 @@ public final class CaptureEngine {
             for (Segment s : f.segments) {
                 long start=(int)(s.seq-f.anchor);
                 if (position!=Long.MIN_VALUE && start>position) {
-                    if (buffer.size()>0) sip(buffer.toByteArray(),f.src,f.dst,"TCP",time,spans);
-                    buffer.reset(); spans.clear(); result.warn("TCP 数据有缺口，部分 SIP 可能缺失"); position=start;
+                    if (buffer.size()>0) signals.add(new SignalingTransport.Data(f.src,f.dst,buffer.toByteArray(),spans,id,gap));
+                    buffer.reset(); spans.clear(); result.warn("TCP 数据有缺口，部分 SIP 可能缺失"); position=start;gap=true;
                 }
                 if (position==Long.MIN_VALUE) position=start;
                 int skip=(int)Math.min(s.data.length,Math.max(0,position-start));
@@ -434,10 +444,11 @@ public final class CaptureEngine {
                     buffer.write(s.data,skip,s.data.length-skip); position=start+s.data.length;
                 }
             }
-            if (buffer.size()>0) sip(buffer.toByteArray(),f.src,f.dst,"TCP",time,spans);
+            if (buffer.size()>0) signals.add(new SignalingTransport.Data(f.src,f.dst,buffer.toByteArray(),spans,id,gap));
             f.segments.clear();
         }
         tcp.clear(); currentTcp.clear();
+        SignalingTransport.decode(signals,keyLog,result,data->sip(data.bytes,data.src,data.dst,data.transport,data.time(0),data.spans));
         result.sip.sort(Comparator.comparingLong(m->m.timeUs));
         for (SipMessage m : result.sip) {
             if (m.callId.isEmpty()) continue;
@@ -542,7 +553,7 @@ public final class CaptureEngine {
                     int pt=Integer.parseInt(parts[0]), clock=Integer.parseInt(format[1]);
                     String codec=format[0].toUpperCase(Locale.ROOT);
                     // G.711 stereo or unusual clock rates must never be decoded as mono 8 kHz.
-                    if (format.length>2 && !format[2].equals("1")) codec+="/"+format[2]+"ch";
+                    if (format.length>2 && !format[2].equals("1") && !(codec.equals("OPUS")&&format[2].equals("2"))) codec+="/"+format[2]+"ch";
                     current.codecs.put(pt,codec); if (clock>0) current.clocks.put(pt,clock);
                 } catch (RuntimeException e) { result.warn("SDP rtpmap 格式无效"); }
             }

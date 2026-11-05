@@ -113,6 +113,7 @@ public final class CoreTest {
         matrix.encrypted=false;matrix.codec="PT 101";check(DtmfParser.parse(matrix).events.isEmpty(),"PT101 alone does not prove telephone-event");
         checks+=CaptureWorkspaceTest.run();
         checks+=CallSearchTest.run(fixtures);
+        checks+=SecureTransportTest.run(fixtures,output);
         checks+=PresentationTest.run(integrated,tcp,keys);
         checks+=PartialCaptureTest.run(fixtures);
         checks+=KeyModesTest.run(fixtures);

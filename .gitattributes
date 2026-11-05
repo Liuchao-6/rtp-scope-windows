@@ -1,0 +1,5 @@
+# Preserve the bytes recorded in shared-source and upstream checksums.
+src/main/java/com/liuchao/rtpscope/core/*.java -text whitespace=cr-at-eol
+src/main/java/org/concentus/*.java -text whitespace=cr-at-eol,-blank-at-eol,-space-before-tab
+src/main/resources/licenses/concentus-LICENSE.txt -text whitespace=cr-at-eol,-blank-at-eol
+src/main/resources/licenses/bouncycastle-LICENSE.txt -text whitespace=cr-at-eol,-blank-at-eol

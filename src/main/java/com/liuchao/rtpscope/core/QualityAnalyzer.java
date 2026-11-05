@@ -104,7 +104,7 @@ public final class QualityAnalyzer {
                 Entry before=previous.getValue(),after=current.getValue();
                 if(before.stream.clockKnown&&after.stream.clockKnown&&before.stream.clock==after.stream.clock) {
                     issue.clock=after.stream.clock;
-                    issue.startTimestamp=(before.packet.timestamp+(before.stream.playable()?AudioRenderer.sampleCount(before.stream,before.packet.payloadSize()):0))&0xffffffffL;
+                    issue.startTimestamp=(before.packet.timestamp+(before.stream.playable()?AudioRenderer.sampleCount(before.stream,before.packet):0))&0xffffffffL;
                     issue.endTimestamp=after.packet.timestamp;
                 }
                 issue.description="缺少序号 "+issue.firstMissing+" — "+issue.lastMissing+"，共 "+missing+" 包";add(report,issue);

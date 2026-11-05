@@ -4,14 +4,19 @@ import java.io.*;
 import java.util.*;
 import com.liuchao.rtpscope.core.CaptureEngine.RtpPacket;
 import com.liuchao.rtpscope.core.CaptureEngine.RtpStream;
-import org.jitsi.impl.neomedia.codec.audio.g729.G729Codec;
+import org.concentus.OpusPacketInfo;
 
 /** G.711 / G.729 -> PCM16 WAV, RTP timing and duplex mixing. */
 public final class AudioRenderer {
     public static final int RATE=8000;
     public static final long MAX_SAMPLES=RATE*60L*60;
     public static int sampleCount(RtpStream stream,byte[] payload) {
+        if(stream.codec.equals("OPUS"))return Math.max(0,OpusPacketInfo.getNumSamples(payload,0,payload.length,48000));
         return sampleCount(stream,payload.length);
+    }
+    public static int sampleCount(RtpStream stream,RtpPacket packet){
+        if(!stream.codec.equals("OPUS"))return sampleCount(stream,packet.payloadSize());
+        try{return Math.max(0,OpusPacketInfo.getNumSamples(packet.prefix(2),0,packet.payloadSize(),48000));}catch(IOException e){throw new UncheckedIOException(e);}
     }
     public static int sampleCount(RtpStream stream,int length) {
         if(stream.codec.equals("G729")||stream.codec.equals("G729A"))return (length/10+(length%10==2?1:0))*80;
@@ -31,6 +36,7 @@ public final class AudioRenderer {
     }
     public static void render(List<RtpStream> streams,File target) throws IOException {
         if (streams.isEmpty() || streams.size()>8) throw new IOException("请选择 1 至 8 条可解码的媒体流");
+        int outputRate=RATE;for(RtpStream s:streams)if(s.codec.equals("OPUS"))outputRate=48000;
         long origin=Long.MAX_VALUE;
         for (RtpStream s:streams) {
             if (!s.playable()) throw new IOException("不支持播放 "+s.codec+"，或该流为加密媒体");
@@ -42,20 +48,20 @@ public final class AudioRenderer {
         for (RtpStream s:streams) {
             long anchor=s.packets.get(0).timestamp, min=0;
             for (RtpPacket p:s.packets) min=Math.min(min,(int)(p.timestamp-anchor));
-            long offset=Math.round((s.firstUs()-origin)*RATE/1000000.0);
+            long offset=Math.round((s.firstUs()-origin)*outputRate/1000000.0);
             bases.add(anchor+min); offsets.add(offset);
             for (RtpPacket p:s.packets) {
-                long position=offset+(int)(p.timestamp-(anchor+min));
-                long end=position+sampleCount(s,p.payloadSize());
-                if (position<0 || end>MAX_SAMPLES) throw new IOException("音频时间轴超过 60 分钟或时间戳异常");
+                long position=offset+Math.round((int)(p.timestamp-(anchor+min))*(double)outputRate/s.clock);
+                long end=position+Math.round(sampleCount(s,p)*(double)outputRate/s.clock);
+                if (position<0 || end>MAX_SAMPLES*outputRate/RATE) throw new IOException("音频时间轴超过 60 分钟或时间戳异常");
                 total=Math.max(total,end);
             }
         }
         try (RandomAccessFile out=new RandomAccessFile(target,"rw")) {
-            out.setLength(0); header(out,total); out.setLength(44+total*2);
+            out.setLength(0); header(out,total,outputRate); out.setLength(44+total*2);
             for (int index=0;index<streams.size();index++) {
                 RtpStream stream=streams.get(index);
-                G729Codec g729=stream.codec.startsWith("G729")?new G729Codec():null;
+                MediaDecoder decoder=new MediaDecoder(stream,outputRate);
                 Set<Long> seen=new HashSet<>(); long high=stream.packets.get(0).sequence;
                 List<RtpPacket> ordered=new ArrayList<>(stream.packets);
                 final long base=bases.get(index);
@@ -64,17 +70,16 @@ public final class AudioRenderer {
                 for (RtpPacket p:ordered) {
                     long sequence=high+(short)(p.sequence-(int)high); high=Math.max(high,sequence);
                     if (!seen.add(sequence)) continue;
-                    long position=offsets.get(index)+(int)(p.timestamp-bases.get(index));
-                    if(g729!=null&&previousEnd>=0&&position>previousEnd)g729.advanceLoss((int)Math.min(101,(position-previousEnd)/80));
-                    short[] decoded=null;
+                    long position=offsets.get(index)+Math.round((int)(p.timestamp-bases.get(index))*(double)outputRate/stream.clock);
+                    if(previousEnd>=0&&position>previousEnd)decoder.gap(position-previousEnd);
                     byte[] payload=p.payload();
-                    if(g729!=null)decoded=g729.decode(payload);
-                    int count=sampleCount(stream,payload);
+                    short[] decoded=decoder.decode(payload);
+                    int count=decoded.length;
                     byte[] pcm=new byte[count*2];
                     out.seek(44+position*2); out.readFully(pcm);
                     for (int i=0;i<count;i++) {
                         int previous=(short)((pcm[i*2]&255)|((pcm[i*2+1]&255)<<8));
-                        int sample=(decoded==null?decode(payload[i]&255,stream.codec.equals("PCMA")):decoded[i])/streams.size();
+                        int sample=decoded[i]/streams.size();
                         int mixed=Math.max(-32768,Math.min(32767,previous+sample));
                         pcm[i*2]=(byte)mixed; pcm[i*2+1]=(byte)(mixed>>8);
                     }
@@ -87,9 +92,9 @@ public final class AudioRenderer {
             throw e;
         }
     }
-    private static void header(RandomAccessFile out,long samples) throws IOException {
+    private static void header(RandomAccessFile out,long samples,int rate) throws IOException {
         out.writeBytes("RIFF"); le32(out,36+samples*2); out.writeBytes("WAVEfmt "); le32(out,16);
-        le16(out,1); le16(out,1); le32(out,RATE); le32(out,RATE*2); le16(out,2); le16(out,16);
+        le16(out,1); le16(out,1); le32(out,rate); le32(out,rate*2); le16(out,2); le16(out,16);
         out.writeBytes("data"); le32(out,samples*2);
     }
     private static void le16(RandomAccessFile out,int value) throws IOException { out.write(value); out.write(value>>8); }
