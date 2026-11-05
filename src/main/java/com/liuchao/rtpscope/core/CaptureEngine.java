@@ -8,10 +8,11 @@ import java.util.*;
 /** Offline parser. Deliberately independent of Android so real captures can be tested on the JVM. */
 public final class CaptureEngine {
     public static final long MAX_FILE = 128L * 1024 * 1024;
+    public static final long MAX_DESKTOP_FILE = 1024L * 1024 * 1024;
     private static final int MAX_BLOCK = 16 * 1024 * 1024;
     private static final int MAX_MEDIA = 64 * 1024 * 1024;
     private static final int MAX_TCP = 24 * 1024 * 1024;
-    public static final class Analysis {
+    public static final class Analysis implements Closeable {
         public final List<SipMessage> sip = new ArrayList<>();
         public final List<Call> calls = new ArrayList<>();
         public final List<RtpStream> streams = new ArrayList<>();
@@ -20,6 +21,8 @@ public final class CaptureEngine {
         public long packets, bytes, firstUs = Long.MAX_VALUE, lastUs;
         public String format = "";
         public boolean reliableTimestamps = true, partial;
+        public PacketStore mediaStore;
+        public void close()throws IOException{if(mediaStore!=null)mediaStore.close();}
         public void warn(String message) { warnings.put(message, warnings.getOrDefault(message, 0) + 1); }
     }
     public static final class SipMessage {
@@ -31,6 +34,10 @@ public final class CaptureEngine {
     public static final class Call {
         public String id, from = "", to = "", status = "";
         public long startUs = Long.MAX_VALUE, endUs = Long.MAX_VALUE;
+        public long lastUs;
+        public String requestTarget="";
+        public boolean inviteIdentity;
+        public final Set<String> signalingIps=new LinkedHashSet<>(),mediaIps=new LinkedHashSet<>();
         public int sipCount;
         public final List<RtpStream> streams = new ArrayList<>();
     }
@@ -40,13 +47,16 @@ public final class CaptureEngine {
         public boolean marker;
         public long extendedSequence;
         public byte[] payload;
+        PacketStore store;long payloadOffset;int storedLength;
+        public int payloadSize(){return payload==null?storedLength:payload.length;}
+        public byte[] payload()throws IOException{return payload==null?store.bytes(payloadOffset,storedLength):payload;}
     }
     public static final class RtpStream {
         public String src, dst, srcIp, dstIp, codec = "未知", callId = "", note = "";
         public int srcPort, dstPort, pt, clock = 8000;
         public long ssrc, lost, duplicates;
         public boolean encrypted, clockKnown;
-        public final List<RtpPacket> packets = new ArrayList<>();
+        public List<RtpPacket> packets = new ArrayList<>();
         public final List<DtmfParser.Event> events = new ArrayList<>();
         public QualityAnalyzer.Report quality;
         public boolean playable() { return !encrypted && clock == 8000 && (codec.equals("PCMA") || codec.equals("PCMU") || codec.equals("G729") || codec.equals("G729A")); }
@@ -60,7 +70,7 @@ public final class CaptureEngine {
             for (RtpPacket p : packets) {
                 long delta = (int)(p.timestamp - base);
                 min = Math.min(min, delta);
-                max = Math.max(max, delta + (playable() ? AudioRenderer.sampleCount(this,p.payload) : 0));
+                max = Math.max(max, delta + (playable() ? AudioRenderer.sampleCount(this,p.payloadSize()) : 0));
             }
             return (max - min) / (double)clock;
         }
@@ -100,6 +110,7 @@ public final class CaptureEngine {
     private final Map<String,Call> calls = new LinkedHashMap<>();
     private final List<Media> media = new ArrayList<>();
     private int mediaBytes, tcpBytes;
+    private long packetLimit=500000;
     private boolean validHeader;
     private static final class FormatException extends IOException {
         FormatException(String message){super(message);}
@@ -111,8 +122,16 @@ public final class CaptureEngine {
     private void recovered(long offset,String reason){result.partial=true;result.warn("文件不完整或局部损坏，字节 "+offset+"："+reason+"；已保留可解析的包");}
 
     public static Analysis read(InputStream input) throws IOException {
-        CaptureEngine engine = new CaptureEngine();
-        CountingInput in = new CountingInput(new BufferedInputStream(input));
+        return read(input,null,null);
+    }
+    public interface Progress {void update(long bytes,long packets);}
+    public static Analysis readLarge(InputStream input,File cacheDirectory,Progress progress)throws IOException{
+        CaptureEngine engine=new CaptureEngine();engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(cacheDirectory);
+        try{return read(input,engine,progress);}catch(IOException|RuntimeException e){try{engine.result.close();}catch(IOException ignored){}throw e;}
+    }
+    private static Analysis read(InputStream input,CaptureEngine supplied,Progress progress)throws IOException{
+        CaptureEngine engine = supplied==null?new CaptureEngine():supplied;
+        CountingInput in = new CountingInput(new BufferedInputStream(input,262144),engine.result.mediaStore==null?MAX_FILE:MAX_DESKTOP_FILE,progress,engine);
         byte[] magic = exact(in, 4, false);
         try {
             if (u32(magic, 0, false) == 0x0a0d0d0aL) engine.readNg(in, magic);
@@ -121,21 +140,28 @@ public final class CaptureEngine {
             if(!engine.validHeader)throw e;
             engine.recovered(in.count,e.getMessage());
         }
+        if(engine.result.mediaStore!=null)engine.result.mediaStore.seal();
         engine.finish();
         engine.result.bytes = in.count;
         return engine.result;
     }
     private static final class CountingInput extends FilterInputStream {
-        long count;
-        CountingInput(InputStream in) { super(in); }
+        long count,nextProgress;final long limit;final Progress progress;final CaptureEngine engine;
+        CountingInput(InputStream in,long limit,Progress progress,CaptureEngine engine) { super(in);this.limit=limit;this.progress=progress;this.engine=engine; }
+        private void advanced(int n)throws IOException{
+            if(n<=0)return;count+=n;
+            if(count>limit)throw new IOException(limit==MAX_FILE?"抓包超过 128 MB，请先拆分文件":"抓包超过 1 GB，请先拆分文件");
+            if(Thread.currentThread().isInterrupted())throw new IOException("导入已取消");
+            if(progress!=null&&count>=nextProgress){progress.update(count,engine.result.packets);nextProgress=count+4*1024*1024;}
+        }
         @Override public int read(byte[] b, int off, int len) throws IOException {
             int n = in.read(b,off,len);
-            if (n > 0 && (count += n) > MAX_FILE) throw new IOException("抓包超过 128 MB，请先拆分文件");
+            advanced(n);
             return n;
         }
         @Override public int read() throws IOException {
             int n = in.read();
-            if (n >= 0 && ++count > MAX_FILE) throw new IOException("抓包超过 128 MB，请先拆分文件");
+            if(n>=0)advanced(1);
             return n;
         }
     }
@@ -235,7 +261,7 @@ public final class CaptureEngine {
         }
     }
     private void packet(byte[] data, int link, long time) throws IOException {
-        if (++result.packets > 500000) throw new IOException("超过 50 万包，请先拆分抓包文件");
+        if (++result.packets > packetLimit) throw new IOException("包数超过分析上限，请先拆分抓包文件");
         result.firstUs = Math.min(result.firstUs,time); result.lastUs = Math.max(result.lastUs,time);
         int p, proto;
         if (link == 1) {
@@ -331,9 +357,11 @@ public final class CaptureEngine {
             stream = new RtpStream(); stream.src = source; stream.dst = destination;
             stream.srcIp = src; stream.dstIp = dst; stream.srcPort = sp; stream.dstPort = dp;
             stream.pt = pt; stream.ssrc = ssrc; candidates.put(key,stream);
+            if(result.mediaStore!=null)stream.packets=new PacketStore.Packets(result.mediaStore);
         }
         mediaBytes += end-off;
-        if (mediaBytes > MAX_MEDIA) throw new IOException("媒体数据超过 64 MB，请先拆分通话");
+        if (result.mediaStore==null&&mediaBytes > MAX_MEDIA) throw new IOException("媒体数据超过 64 MB，请先拆分通话");
+        if(result.mediaStore!=null){((PacketStore.Packets)stream.packets).append(result.mediaStore.append(time,u32(b,4,false),u16(b,2,false),(b[1]&128)!=0,b,off,end),time);return;}
         RtpPacket packet = new RtpPacket(); packet.sequence = u16(b,2,false);
         packet.marker = (b[1]&128)!=0;
         packet.timestamp = u32(b,4,false); packet.timeUs = time;
@@ -416,13 +444,16 @@ public final class CaptureEngine {
             Call call=calls.get(m.callId);
             if (call==null) { call=new Call(); call.id=m.callId; calls.put(call.id,call); result.calls.add(call); }
             call.startUs=Math.min(call.startUs,m.timeUs); call.sipCount++;
+            call.lastUs=Math.max(call.lastUs,m.timeUs);call.signalingIps.add(CallFlow.Endpoint.parse(m.src).ip);call.signalingIps.add(CallFlow.Endpoint.parse(m.dst).ip);
             if (call.from.isEmpty()) call.from=m.from; if (call.to.isEmpty()) call.to=m.to;
+            if(!call.inviteIdentity&&m.firstLine.startsWith("INVITE ")){call.inviteIdentity=true;call.from=m.from;call.to=m.to;String[] words=m.firstLine.split(" +");if(words.length>1)call.requestTarget=words[1];}
             if (m.firstLine.startsWith("SIP/2.0") && m.cseq.toUpperCase(Locale.ROOT).endsWith("INVITE")) call.status=m.firstLine;
             if (m.firstLine.startsWith("BYE ") || m.firstLine.startsWith("CANCEL ")) call.endUs=Math.min(call.endUs,m.timeUs+2000000);
             if (m.headers.getOrDefault("content-type","").toLowerCase(Locale.ROOT).contains("application/sdp")) sdp(m);
         }
+        for(Media endpoint:media)if(!endpoint.ip.isEmpty()&&calls.containsKey(endpoint.callId))calls.get(endpoint.callId).mediaIps.add(endpoint.ip);
         for (RtpStream stream : candidates.values()) {
-            stream.packets.sort(Comparator.comparingLong(p->p.timeUs));
+            if(stream.packets instanceof PacketStore.Packets)((PacketStore.Packets)stream.packets).sortByTime();else stream.packets.sort(Comparator.comparingLong(p->p.timeUs));
             Media chosen=null; int best=0; boolean tied=false;
             for (Media m : media) {
                 Call c=calls.get(m.callId); long t=stream.firstUs();
@@ -450,11 +481,12 @@ public final class CaptureEngine {
                 stream.encrypted=chosen.profile.toUpperCase(Locale.ROOT).contains("SAVP");
                 if (stream.encrypted) stream.note="SDP 声明 SRTP，当前版本不解密";
                 calls.get(chosen.callId).streams.add(stream);
+                Call linked=calls.get(chosen.callId);linked.mediaIps.add(stream.srcIp);linked.mediaIps.add(stream.dstIp);linked.lastUs=Math.max(linked.lastUs,stream.packets.get(stream.packets.size()-1).timeUs);
             } else stream.note="未关联 SDP；静态 PT 仅推断编码，无法仅凭 RTP 首部排除 SRTP";
             if (!stream.playable() && !stream.encrypted) stream.note=stream.isDtmf()?"RFC 2833 / 4733 按键事件":"当前未提供此编码的解码器";
             if(stream.playable()&&stream.codec.startsWith("G729")) {
                 boolean sid=false,invalid=false;
-                for(RtpPacket p:stream.packets){sid|=p.payload.length%10==2;invalid|=p.payload.length%10!=0&&p.payload.length%10!=2;}
+                for(RtpPacket p:stream.packets){int size=p.payloadSize();sid|=size%10==2;invalid|=size%10!=0&&size%10!=2;}
                 if(sid)stream.note+=(stream.note.isEmpty()?"":"；")+"SID 区间保留静音，未合成舒适噪声";
                 if(invalid)stream.note+=(stream.note.isEmpty()?"":"；")+"包含 G.729 包长异常，播放时会拒绝处理";
             }

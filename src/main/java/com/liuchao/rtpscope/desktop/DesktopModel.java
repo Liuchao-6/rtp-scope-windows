@@ -8,6 +8,8 @@ import java.util.*;
 public final class DesktopModel {
     public Analysis analysis;
     public String callId="",query="";
+    public CallSearch.Filter callSearch=new CallSearch.Filter();
+    public List<Call> calls(){return analysis==null?Collections.emptyList():CallSearch.find(analysis.calls,callSearch);}
     public final Set<RtpStream> selected=new LinkedHashSet<>();
     public boolean matches(String text){return query.isEmpty()||text.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT));}
     private boolean call(String id){return callId.isEmpty()||callId.equals(id);}
@@ -15,7 +17,7 @@ public final class DesktopModel {
     public List<RtpStream> streams(){List<RtpStream> out=new ArrayList<>();if(analysis!=null)for(RtpStream s:analysis.streams)if(call(s.callId)&&matches(s.searchable()))out.add(s);return out;}
     public List<DtmfParser.Event> events(){List<DtmfParser.Event> out=new ArrayList<>();if(analysis!=null)for(DtmfParser.Event e:analysis.events)if(call(e.callId)&&matches(e.searchable()))out.add(e);return out;}
     public CallFlow flow(){return CallFlow.build(analysis,callId,query);}
-    public void load(Analysis value){analysis=value;callId="";query="";selected.clear();}
+    public void load(Analysis value){analysis=value;callId="";query="";callSearch=new CallSearch.Filter();selected.clear();}
     public List<RtpStream> playbackSelection() {
         List<RtpStream> out=new ArrayList<>(selected);String id=null;
         for(RtpStream s:out){if(!s.playable())throw new IllegalArgumentException("选中的媒体流包含不支持的编码或加密媒体");if(id==null)id=s.callId;else if(!id.equals(s.callId))throw new IllegalArgumentException("请选择同一通话的媒体流分别播放");}

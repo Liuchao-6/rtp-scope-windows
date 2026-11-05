@@ -39,7 +39,7 @@ public final class DtmfParser {
         if (stream.encrypted || !stream.isDtmf() || !stream.clockKnown || stream.clock<=0) return result;
         Map<String,Event> grouped=new LinkedHashMap<>();
         for (RtpPacket packet:stream.packets) {
-            byte[] b=packet.payload;
+            byte[] b=packet.payload();
             if (b.length==0 || b.length%4!=0) { result.malformed++; continue; }
             for (int off=0;off<b.length;off+=4) {
                 if ((b[off+1]&64)!=0) { result.malformed++; continue; }

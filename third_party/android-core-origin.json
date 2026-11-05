@@ -2,11 +2,11 @@
   "source_project": "rtp-scope-android",
   "source_commit": "f0b26d7",
   "files_sha256": {
-    "com/liuchao/rtpscope/core/AudioRenderer.java": "7e9f84b7bb77cadf8fbf582ac414cc158b1c5f23e6534c05759f04bdbbf0ae8a",
-    "com/liuchao/rtpscope/core/CallFlow.java": "2e5c409783f7c1bd6aa8f5a5213ce1d7c2ea6551302aeb32eea06d9f3e769d7c",
-    "com/liuchao/rtpscope/core/CaptureEngine.java": "0d7a79ed86dd0bf26e2b71705a2f15cb286d030f5b338cc0f2d624ff44c5a50a",
-    "com/liuchao/rtpscope/core/DtmfParser.java": "7adb110e7465f6a63c36c88cd29805633a202d1a0b831a5fde1b22b1c5ae6c92",
-    "com/liuchao/rtpscope/core/QualityAnalyzer.java": "a1e33e4472259f97d91eb1ca24ddd3a0f7883e335ba28786e8d07464232f527d",
+    "com/liuchao/rtpscope/core/AudioRenderer.java": "6863cb5ccdfa759118b36f00e61625aa5b8196aa6c76b42ae38b2ab9fef60ba0",
+    "com/liuchao/rtpscope/core/CallFlow.java": "b1efd39f6487eb394459dcf45918f1f770cf7c9f029c17f8fa1084019e9cec22",
+    "com/liuchao/rtpscope/core/CaptureEngine.java": "8a6e6b73f611c2aec9d4a86e9ab5ac9fb95b3ec3adb11c3067592fa9eadb709f",
+    "com/liuchao/rtpscope/core/DtmfParser.java": "5a54b36a0a71879be2ed03193b46c425f07c72d376be2a6328704f2e853690f7",
+    "com/liuchao/rtpscope/core/QualityAnalyzer.java": "7a310fed04c23ae20f61441b5e7e18052fcabdee03ac6e877b392cbedcaf3ccd",
     "com/liuchao/rtpscope/core/SipSyntax.java": "751418a9fa42f30f2334e1e9349aba1c4476ddf4934f256f6a79827e9f7074f0",
     "com/liuchao/rtpscope/core/WaveformData.java": "9d8e2c05300f99710b07042d061f0dda2d892e5434e2b0d749dcb4af6b7052d8",
     "org/jitsi/impl/neomedia/codec/audio/g729/AcelpCo.java": "85876f8fa68cd775800fcf59f16c1fecd44587c8e55bb2863a7e1f3bb150593d",
@@ -41,11 +41,13 @@
     "org/jitsi/impl/neomedia/codec/audio/g729/TabLd8k.java": "b83136c7ed2f54d9c716f5aac1baed2a9539ca691a922325a80b8f58d1d11e86",
     "org/jitsi/impl/neomedia/codec/audio/g729/Taming.java": "628588bbe2030ab53de11c632369272689fd6482a102eb2f2fa0301decb7341e",
     "org/jitsi/impl/neomedia/codec/audio/g729/Util.java": "b660768356005b045e84394160cc8c92de68c886456358b03400cb8fa3a72ce7",
-    "com/liuchao/rtpscope/core/InbandDtmf.java": "ba7f4d21ada1e18f40fe0459fc8be8a977cee2c2f9846f0f7e15c554052d11b2",
+    "com/liuchao/rtpscope/core/InbandDtmf.java": "d0f9ef028f7fbe3555f01351ac38351143db530041a15ee353143f47f3aaf3e2",
     "com/liuchao/rtpscope/core/KeyAnalysis.java": "484ffe32c8201755876eb3af2c64e9daf384f427ab2697dce67a869ec273ccb2",
     "com/liuchao/rtpscope/core/SipInfoDtmf.java": "4912a2edcb073d4df863d484c42981a4f8608fa17481fcf806bd823c9dac0a38",
     "com/liuchao/rtpscope/core/WaveformViewport.java": "f7232164aa674aacaec4af8c73cee65d3a1a09a2cb6f3840543009ebbbcff30e",
-    "com/liuchao/rtpscope/core/CaptureWorkspace.java": "94e9562e45c21dfaac46fc907c9911453ed800f9f933c46805e638c342970260"
+    "com/liuchao/rtpscope/core/CaptureWorkspace.java": "4dc6787890f6a7fdd27675daa9a73d19ffaeb648184337c13ecd335fef340dda",
+    "com/liuchao/rtpscope/core/CallSearch.java": "327315229d0d48b8bb9be728eaccb1bffe363db947d8e8e8f7ccd29bd10abf6d",
+    "com/liuchao/rtpscope/core/PacketStore.java": "0575e05411f13263ad51eae698c613851090bdb9dd8ad7d22c7c9f777a79b345"
   },
-  "source_revision_note": "source_commit identifies the Android 0.3.0 baseline only. Capture recovery and the shared DtmfParser, SipInfoDtmf, InbandDtmf, KeyAnalysis, CallFlow, WaveformData and WaveformViewport were synchronized from the Android 0.5.0 working tree. files_sha256 records the current identical imported sources, including unchanged upstream G.729 sources. Desktop AudioPreview adapts the Android class with a desktop package. CaptureWorkspace is synchronized from the Android 0.6.0 working tree for independent multi-file selection and lightweight per-file view state."
+  "source_revision_note": "source_commit identifies the Android 0.3.0 baseline only. Capture recovery and the shared DtmfParser, SipInfoDtmf, InbandDtmf, KeyAnalysis, CallFlow, WaveformData and WaveformViewport were synchronized from the Android 0.5.0 working tree. files_sha256 records the current identical imported sources, including unchanged upstream G.729 sources. Desktop AudioPreview adapts the Android class with a desktop package. CaptureWorkspace is synchronized from the Android 0.6.0 working tree for independent multi-file selection and lightweight per-file view state. Call discovery and optional disk-backed large-capture parsing are synchronized from the Android 0.7.0 working tree; Android retains the default 128 MiB / 64 MiB limits, and Windows uses the 1 GiB disk-backed mode."
 }

@@ -27,14 +27,15 @@ public final class InbandDtmf {
         void gap(){flush(false);fill=0;}
     }
     public static List<DtmfParser.Event> detect(List<RtpStream> streams,Analysis analysis,long[] budget){
+        if(budget[0]<=0){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");return new ArrayList<>();}
         RtpStream first=streams.get(0);long base=DtmfParser.mediaBase(first);for(RtpStream s:streams)if((int)(DtmfParser.mediaBase(s)-base)<0)base=DtmfParser.mediaBase(s);
-        final long origin=base;List<RtpPacket> ordered=new ArrayList<>();Map<RtpPacket,RtpStream> owners=new IdentityHashMap<>();for(RtpStream s:streams)for(RtpPacket p:s.packets){ordered.add(p);owners.put(p,s);}ordered.sort(Comparator.comparingLong(p->(int)(p.timestamp-origin)));
+        final long origin=base;List<RtpPacket> ordered=new ArrayList<>();Map<RtpPacket,RtpStream> owners=new IdentityHashMap<>();for(RtpStream s:streams){long samples=0;for(RtpPacket p:s.packets){int count=AudioRenderer.sampleCount(s,p.payloadSize());if((int)(p.timestamp-origin)>AudioRenderer.MAX_SAMPLES||samples+count>budget[0]){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}samples+=count;ordered.add(p);owners.put(p,s);}}ordered.sort(Comparator.comparingLong(p->(int)(p.timestamp-origin)));
         long originUs=Long.MAX_VALUE;for(RtpStream s:streams)originUs=Math.min(originUs,s.firstUs()+(int)(base-DtmfParser.mediaBase(s))*125L);
         Detector detector=new Detector(first,base,originUs);long previous=-1;String codec="";G729Codec g729=null;Set<Long> seen=new HashSet<>();
-        for(RtpPacket p:ordered){RtpStream s=owners.get(p);long position=(int)(p.timestamp-base);if(!seen.add(position))continue;int count=AudioRenderer.sampleCount(s,p.payload);if(position+count>AudioRenderer.MAX_SAMPLES||budget[0]<count){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}
+        for(RtpPacket p:ordered){RtpStream s=owners.get(p);long position=(int)(p.timestamp-base);if(!seen.add(position))continue;int count=AudioRenderer.sampleCount(s,p.payloadSize());if(position+count>AudioRenderer.MAX_SAMPLES||budget[0]<count){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}
             if(previous>=0&&position>previous){detector.gap();if(g729!=null)g729.advanceLoss((int)Math.min(101,(position-previous)/80));}if(position<previous)continue;
             if(!codec.equals(s.codec)){codec=s.codec;g729=codec.startsWith("G729")?new G729Codec():null;}
-            try{short[] pcm;if(g729!=null)pcm=g729.decode(p.payload);else{pcm=new short[p.payload.length];for(int i=0;i<pcm.length;i++)pcm[i]=(short)AudioRenderer.decode(p.payload[i]&255,codec.equals("PCMA"));}budget[0]-=pcm.length;for(int i=0;i<pcm.length;i++)detector.add(pcm[i],position+i);previous=position+pcm.length;}
+            try{byte[] payload=p.payload();short[] pcm;if(g729!=null)pcm=g729.decode(payload);else{pcm=new short[payload.length];for(int i=0;i<pcm.length;i++)pcm[i]=(short)AudioRenderer.decode(payload[i]&255,codec.equals("PCMA"));}budget[0]-=pcm.length;for(int i=0;i<pcm.length;i++)detector.add(pcm[i],position+i);previous=position+pcm.length;}
             catch(IOException e){analysis.warn("音内按键跳过编码包长异常的数据");detector.gap();g729=null;codec="";previous=-1;}
         }
         detector.flush(false);return detector.events;

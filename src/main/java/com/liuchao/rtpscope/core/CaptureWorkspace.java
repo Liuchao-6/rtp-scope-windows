@@ -8,6 +8,7 @@ public final class CaptureWorkspace<T> {
         public final String id, name;
         public final T source;
         public String query="", callId="", error="";
+        public CallSearch.Filter callSearch=new CallSearch.Filter();
         public int tab;
         public boolean sipList;
         private Entry(String id,String name,T source){this.id=id;this.name=name;this.source=source;}

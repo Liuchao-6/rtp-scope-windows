@@ -11,8 +11,11 @@ public final class AudioRenderer {
     public static final int RATE=8000;
     public static final long MAX_SAMPLES=RATE*60L*60;
     public static int sampleCount(RtpStream stream,byte[] payload) {
-        if(stream.codec.equals("G729")||stream.codec.equals("G729A"))return (payload.length/10+(payload.length%10==2?1:0))*80;
-        return payload.length;
+        return sampleCount(stream,payload.length);
+    }
+    public static int sampleCount(RtpStream stream,int length) {
+        if(stream.codec.equals("G729")||stream.codec.equals("G729A"))return (length/10+(length%10==2?1:0))*80;
+        return length;
     }
     public static int decode(int value,boolean alaw) {
         if (alaw) {
@@ -43,7 +46,7 @@ public final class AudioRenderer {
             bases.add(anchor+min); offsets.add(offset);
             for (RtpPacket p:s.packets) {
                 long position=offset+(int)(p.timestamp-(anchor+min));
-                long end=position+sampleCount(s,p.payload);
+                long end=position+sampleCount(s,p.payloadSize());
                 if (position<0 || end>MAX_SAMPLES) throw new IOException("音频时间轴超过 60 分钟或时间戳异常");
                 total=Math.max(total,end);
             }
@@ -64,13 +67,14 @@ public final class AudioRenderer {
                     long position=offsets.get(index)+(int)(p.timestamp-bases.get(index));
                     if(g729!=null&&previousEnd>=0&&position>previousEnd)g729.advanceLoss((int)Math.min(101,(position-previousEnd)/80));
                     short[] decoded=null;
-                    if(g729!=null)decoded=g729.decode(p.payload);
-                    int count=sampleCount(stream,p.payload);
+                    byte[] payload=p.payload();
+                    if(g729!=null)decoded=g729.decode(payload);
+                    int count=sampleCount(stream,payload);
                     byte[] pcm=new byte[count*2];
                     out.seek(44+position*2); out.readFully(pcm);
                     for (int i=0;i<count;i++) {
                         int previous=(short)((pcm[i*2]&255)|((pcm[i*2+1]&255)<<8));
-                        int sample=(decoded==null?decode(p.payload[i]&255,stream.codec.equals("PCMA")):decoded[i])/streams.size();
+                        int sample=(decoded==null?decode(payload[i]&255,stream.codec.equals("PCMA")):decoded[i])/streams.size();
                         int mixed=Math.max(-32768,Math.min(32767,previous+sample));
                         pcm[i*2]=(byte)mixed; pcm[i*2+1]=(byte)(mixed>>8);
                     }

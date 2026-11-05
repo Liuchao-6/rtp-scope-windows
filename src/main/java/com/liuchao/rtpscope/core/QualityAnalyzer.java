@@ -27,6 +27,20 @@ public final class QualityAnalyzer {
         RtpStream stream;RtpPacket packet;
         Entry(RtpStream s,RtpPacket p){stream=s;packet=p;}
     }
+    private static final class Cursor {
+        final RtpStream stream;final int order;int index;RtpPacket packet;
+        Cursor(RtpStream stream,int order){this.stream=stream;this.order=order;packet=stream.packets.get(0);}
+    }
+    private static Iterator<Entry> entries(List<RtpStream> streams){
+        boolean disk=false;for(RtpStream s:streams)disk|=s.packets instanceof PacketStore.Packets;
+        if(!disk){List<Entry> all=new ArrayList<>();for(RtpStream s:streams)for(RtpPacket p:s.packets)all.add(new Entry(s,p));all.sort(Comparator.comparingLong(e->e.packet.timeUs));return all.iterator();}
+        PriorityQueue<Cursor> queue=new PriorityQueue<>(Comparator.<Cursor>comparingLong(c->c.packet.timeUs).thenComparingInt(c->c.order));
+        for(int n=0;n<streams.size();n++){RtpStream s=streams.get(n);if(!s.packets.isEmpty())queue.add(new Cursor(s,n));}
+        return new Iterator<Entry>(){
+            public boolean hasNext(){return !queue.isEmpty();}
+            public Entry next(){Cursor c=queue.remove();Entry value=new Entry(c.stream,c.packet);if(++c.index<c.stream.packets.size()){c.packet=c.stream.packets.get(c.index);queue.add(c);}return value;}
+        };
+    }
     public static void attach(List<RtpStream> visible,List<RtpStream> candidates,boolean reliable) {
         Map<String,List<RtpStream>> groups=new LinkedHashMap<>();
         for(RtpStream s:visible)groups.computeIfAbsent(s.transportKey(),k->new ArrayList<>());
@@ -37,14 +51,12 @@ public final class QualityAnalyzer {
     }
     public static Report analyze(List<RtpStream> streams,boolean reliable) {
         Report report=new Report();report.reliableTimestamps=reliable;
-        List<Entry> entries=new ArrayList<>();
-        for(RtpStream stream:streams){report.payloadTypes.add(stream.pt);for(RtpPacket p:stream.packets)entries.add(new Entry(stream,p));}
-        entries.sort(Comparator.comparingLong(e->e.packet.timeUs));
-        if(entries.isEmpty())return report;
-        report.firstUs=entries.get(0).packet.timeUs;report.lastUs=entries.get(entries.size()-1).packet.timeUs;
+        for(RtpStream stream:streams)report.payloadTypes.add(stream.pt);
         TreeMap<Long,Entry> sequence=new TreeMap<>();
-        long high=entries.get(0).packet.sequence;Entry previousAudio=null;double jitter=0;
-        for(Entry entry:entries) {
+        long high=0;Entry previousAudio=null;double jitter=0;
+        for(Iterator<Entry> iterator=entries(streams);iterator.hasNext();) {
+            Entry entry=iterator.next();
+            if(report.packets==0){high=entry.packet.sequence;report.firstUs=entry.packet.timeUs;}report.lastUs=entry.packet.timeUs;
             RtpPacket p=entry.packet;RtpStream s=entry.stream;report.packets++;
             long extended=high+(short)(p.sequence-(int)high);
             if(Math.abs(extended-high)>3000) {
@@ -57,6 +69,7 @@ public final class QualityAnalyzer {
             if(sequence.containsKey(extended)){report.duplicates++;continue;}
             if(extended<high)report.reordered++;
             sequence.put(extended,entry);high=Math.max(high,extended);report.unique++;
+            if(sequence.size()>8192){NavigableMap<Long,Entry> old=sequence.headMap(high-4096,true);if(old.size()>1){Long boundary=old.lastKey();collectGaps(old,report);sequence.headMap(boundary,false).clear();}}
             if(s.encrypted || s.isDtmf() || s.codec.equals("CN") || !s.clockKnown)continue;
             if(previousAudio!=null && s.clock==previousAudio.stream.clock && s.codec.equals(previousAudio.stream.codec)) {
                 double arrival=(p.timeUs-previousAudio.packet.timeUs)/1000.0;
@@ -80,7 +93,7 @@ public final class QualityAnalyzer {
         report.issues.sort(Comparator.comparingLong(i->i.timeUs));
         return report;
     }
-    private static void collectGaps(TreeMap<Long,Entry> sequence,Report report) {
+    private static void collectGaps(Map<Long,Entry> sequence,Report report) {
         Map.Entry<Long,Entry> previous=null;
         for(Map.Entry<Long,Entry> current:sequence.entrySet()) {
             if(previous!=null && current.getKey()-previous.getKey()>1) {
@@ -91,7 +104,7 @@ public final class QualityAnalyzer {
                 Entry before=previous.getValue(),after=current.getValue();
                 if(before.stream.clockKnown&&after.stream.clockKnown&&before.stream.clock==after.stream.clock) {
                     issue.clock=after.stream.clock;
-                    issue.startTimestamp=(before.packet.timestamp+(before.stream.playable()?AudioRenderer.sampleCount(before.stream,before.packet.payload):0))&0xffffffffL;
+                    issue.startTimestamp=(before.packet.timestamp+(before.stream.playable()?AudioRenderer.sampleCount(before.stream,before.packet.payloadSize()):0))&0xffffffffL;
                     issue.endTimestamp=after.packet.timestamp;
                 }
                 issue.description="缺少序号 "+issue.firstMissing+" — "+issue.lastMissing+"，共 "+missing+" 包";add(report,issue);

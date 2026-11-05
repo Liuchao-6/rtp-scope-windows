@@ -42,7 +42,7 @@ public final class CallFlow {
         }
         for(RtpStream s:analysis.streams)if(accept(callId,s.callId)&&!s.packets.isEmpty()) {
             long first=Long.MAX_VALUE,last=Long.MIN_VALUE;
-            for(RtpPacket p:s.packets){first=Math.min(first,p.timeUs);last=Math.max(last,p.timeUs);}
+            if(s.packets instanceof PacketStore.Packets){first=s.packets.get(0).timeUs;last=s.packets.get(s.packets.size()-1).timeUs;}else for(RtpPacket p:s.packets){first=Math.min(first,p.timeUs);last=Math.max(last,p.timeUs);}
             origin=Math.min(origin,first);
             if(s.isDtmf()&&!s.events.isEmpty())continue;
             if(matches(s.searchable(),query)) {
