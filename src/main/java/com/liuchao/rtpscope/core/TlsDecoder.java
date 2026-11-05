@@ -3,6 +3,8 @@ package com.liuchao.rtpscope.core;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.security.cert.CertificateFactory;
+import java.security.interfaces.RSAPublicKey;
 import java.util.*;
 import javax.crypto.*;
 import javax.crypto.spec.*;
@@ -12,18 +14,19 @@ import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.params.*;
 import static com.liuchao.rtpscope.core.SignalingTransport.Data;
 
-/** Authenticated offline TLS 1.2/1.3 record decryption using NSS session secrets. */
+/** Authenticated offline TLS records using NSS secrets or RSA key-exchange private keys. */
 final class TlsDecoder {
     private static final class Record {int type,version;byte[] body,header;long time;}
-    private static final class Hello {byte[] random;int suite,version;long time;boolean etm;}
-    private static final class Direction {int id;String src,dst;List<Record> records=new ArrayList<>();Hello client,server;}
+    private static final class Handshake {int type;byte[] raw,body;}
+    private static final class Hello {byte[] random;int suite,version;long time;boolean etm,ems;}
+    private static final class Direction {int id;String src,dst;List<Record> records=new ArrayList<>();List<Handshake> handshakes=new ArrayList<>();Hello client,server;}
     private static final class Suite {
-        int key,iv,tag=16,mode=1,mac;String hash="HmacSHA256",macHash="HmacSHA1";boolean tls13;
+        int key,iv,tag=16,mode=1,mac,block=16;String hash="HmacSHA256",macHash="HmacSHA1",cipher="AES";boolean tls13;
         Suite(int key,int iv){this.key=key;this.iv=iv;}
     }
-    private static final class Session {Direction client,server;Hello ch,sh;Suite suite;}
+    private static final class Session {Direction client,server;Hello ch,sh;Suite suite;byte[] master;}
     private static boolean tls(byte[] b){return b.length>=3&&(b[0]&255)>=20&&(b[0]&255)<=24&&b[1]==3&&(b[2]&255)<=4;}
-    static List<Data> decrypt(List<Data> inputs,TlsKeyLog keys,CaptureEngine.Analysis analysis)throws IOException {
+    static List<Data> decrypt(List<Data> inputs,TlsKeyLog keys,TlsRsaKeys rsa,CaptureEngine.Analysis analysis)throws IOException {
         List<Data> output=new ArrayList<>();Map<Integer,Direction> directions=new LinkedHashMap<>();Set<Integer> plain=new HashSet<>();
         for(Data input:inputs){
             Direction direction=directions.get(input.direction);
@@ -37,7 +40,7 @@ final class TlsDecoder {
                 Record record=new Record();record.type=type;record.version=u16(b,at+1);record.header=Arrays.copyOfRange(b,at,at+5);record.body=Arrays.copyOfRange(b,at+5,at+5+len);record.time=input.time(at);direction.records.add(record);at+=5+len;
             }
         }
-        for(Direction d:directions.values())readHellos(d);
+        for(Direction d:directions.values())readHellos(d,analysis);
         List<Session> sessions=new ArrayList<>();
         for(Direction client:directions.values())if(client.client!=null){
             Direction server=null;long distance=Long.MAX_VALUE;
@@ -46,34 +49,84 @@ final class TlsDecoder {
             }
             if(server!=null){Session s=new Session();s.client=client;s.server=server;s.ch=client.client;s.sh=server.server;s.suite=suite(s.sh.suite);sessions.add(s);}
         }
+        for(Session session:sessions)if(session.suite!=null&&!session.suite.tls13&&session.sh.version>=0x0301&&session.sh.version<=0x0303){
+            session.master=keys.secret("CLIENT_RANDOM",session.ch.random);
+            if(session.master==null&&rsa.size()>0)try{session.master=rsaMaster(session,rsa,analysis);}catch(GeneralSecurityException e){analysis.warn("RSA 私钥无法还原此会话：私钥不匹配或握手内容损坏；可尝试对应的 TLS key log");}
+        }
         for(Direction direction:directions.values()){
             Session session=null;for(Session s:sessions)if(s.client==direction||s.server==direction){session=s;break;}
             if(session==null){analysis.warn("TLS 缺少配对的 ClientHello / ServerHello，无法匹配会话密钥");continue;}
-            if(session.suite==null||session.sh.version!=0x0303){analysis.warn("TLS 版本或密码套件暂不支持");continue;}
-            if(keys.size()==0){analysis.warn("识别到 TLS；可单独导入匹配的 TLS key log 后重新分析");continue;}
+            if(session.suite==null||session.sh.version<0x0301||session.sh.version>0x0303||session.sh.version<0x0303&&session.suite.mode!=3){analysis.warn("TLS 版本或密码套件暂不支持");continue;}
+            if(keys.size()==0&&rsa.size()==0){analysis.warn("识别到 TLS；可从「解密密钥」单独导入 TLS key log 或 RSA 私钥后重新分析");continue;}
+            if(session.suite.tls13&&keys.size()==0){analysis.warn("TLS 1.3 不能仅用 RSA 私钥解密；请导入匹配的 TLS key log");continue;}
+            if(!session.suite.tls13&&session.master==null){if(rsa.size()==0)analysis.warn("TLS key log 没有匹配的 CLIENT_RANDOM 会话密钥");continue;}
             try{decode(direction,session,keys,analysis,output);}catch(GeneralSecurityException e){analysis.warn("TLS 加密组件无法处理此会话");}
         }
         return output;
     }
-    private static void readHellos(Direction direction)throws IOException {
-        ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+    private static void readHellos(Direction direction,CaptureEngine.Analysis analysis)throws IOException {
+        ByteArrayOutputStream buffer=new ByteArrayOutputStream();int total=0;
         for(Record record:direction.records){
             if(record.type==20||record.type==23)break;if(record.type!=22)continue;
-            if(buffer.size()+record.body.length>2*1024*1024)break;buffer.write(record.body);byte[] b=buffer.toByteArray();int at=0;
+            if(total+record.body.length>2*1024*1024){analysis.warn("TLS 初始握手超过 2 MiB，RSA 解密可能缺少握手数据；可导入 key log");break;}total+=record.body.length;buffer.write(record.body);byte[] b=buffer.toByteArray();int at=0;
             while(b.length-at>=4){int type=b[at]&255,len=u24(b,at+1);if(len>b.length-at-4)break;
+                if(direction.handshakes.size()>=4096){analysis.warn("TLS 初始握手消息超过解析限制");return;}
                 if((type==1||type==2)&&len>=38){int base=at+4;Hello hello=new Hello();hello.version=u16(b,base);hello.random=Arrays.copyOfRange(b,base+2,base+34);hello.time=record.time;
                     int p=base+35+(b[base+34]&255),end=base+len;
-                    if(type==1){if(direction.client==null)direction.client=hello;}
-                    else if(p+3<=end){hello.suite=u16(b,p);p+=3;if(p+2<=end){int extEnd=Math.min(end,p+2+u16(b,p));p+=2;while(p+4<=extEnd){int ext=u16(b,p),size=u16(b,p+2);p+=4;if(size>extEnd-p)break;if(ext==22)hello.etm=true;p+=size;}}if(direction.server==null)direction.server=hello;}
+                    if(type==1){if(p+2<=end){int suites=u16(b,p);p+=2+suites;if(p<end)p+=1+(b[p]&255);readExtensions(b,p,end,hello);}if(direction.client==null)direction.client=hello;}
+                    else if(p+3<=end){hello.suite=u16(b,p);p+=3;readExtensions(b,p,end,hello);if(direction.server==null)direction.server=hello;}
                 }
+                Handshake message=new Handshake();message.type=type;message.raw=Arrays.copyOfRange(b,at,at+4+len);message.body=Arrays.copyOfRange(b,at+4,at+4+len);direction.handshakes.add(message);
                 at+=4+len;
             }
             buffer.reset();buffer.write(b,at,b.length-at);
         }
     }
+    private static void readExtensions(byte[] b,int at,int end,Hello hello){
+        if(at+2>end)return;int limit=Math.min(end,at+2+u16(b,at));at+=2;
+        while(at+4<=limit){int type=u16(b,at),size=u16(b,at+2);at+=4;if(size>limit-at)break;if(type==22&&size==0)hello.etm=true;if(type==23&&size==0)hello.ems=true;at+=size;}
+    }
+    private static boolean rsaExchange(int suite){return suite==0x000a||suite==0x002f||suite==0x0035||suite==0x003c||suite==0x003d||suite==0x009c||suite==0x009d;}
+    private static byte[] rsaMaster(Session session,TlsRsaKeys keys,CaptureEngine.Analysis analysis)throws IOException,GeneralSecurityException {
+        if(!rsaExchange(session.sh.suite)){analysis.warn("此 TLS 会话使用 ECDHE / DHE 等密钥交换，RSA 私钥不能解密；请导入匹配的 TLS key log");return null;}
+        Handshake exchange=null;for(Handshake message:session.client.handshakes)if(message.type==16){exchange=message;break;}
+        if(exchange==null){analysis.warn("RSA 解密缺少 ClientKeyExchange；会话可能为复用会话或握手未抓完整，请导入 TLS key log 或包含初始完整握手的抓包");return null;}
+        RSAPublicKey serverKey=null;
+        for(Handshake message:session.server.handshakes)if(message.type==11){
+            byte[] body=message.body;if(body.length<6||u24(body,0)!=body.length-3||u24(body,3)>body.length-6)throw new GeneralSecurityException();
+            PublicKey key=CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(body,6,u24(body,3))).getPublicKey();
+            if(!(key instanceof RSAPublicKey))throw new GeneralSecurityException();serverKey=(RSAPublicKey)key;break;
+        }
+        if(serverKey!=null&&!keys.matches(serverKey)){analysis.warn("已加载的 RSA 私钥与此会话服务器证书不匹配");return null;}
+        byte[] body=exchange.body;if(body.length<2||u16(body,0)!=body.length-2)throw new GeneralSecurityException();
+        byte[] premaster=keys.premaster(Arrays.copyOfRange(body,2,body.length),serverKey,session.ch.version);
+        try {
+            if(session.sh.ems){
+                if(!session.ch.ems)throw new GeneralSecurityException();
+                ByteArrayOutputStream transcript=new ByteArrayOutputStream();boolean first=true;
+                // Initial full-handshake flight order, independent of timestamp resolution.
+                for(Handshake message:session.client.handshakes)if(message.type==1&&first){transcript.write(message.raw);first=false;}
+                boolean serverDone=false;for(Handshake message:session.server.handshakes){transcript.write(message.raw);if(message.type==14){serverDone=true;break;}}
+                if(first||!serverDone){analysis.warn("RSA 扩展主密钥解密需要完整初始握手；当前缺少 ClientHello / ServerHelloDone");return null;}
+                for(Handshake message:session.client.handshakes){if(message.type==1)continue;transcript.write(message.raw);if(message==exchange)break;}
+                byte[] hash=handshakeHash(session,transcript.toByteArray());return sessionPrf(session,premaster,"extended master secret",hash,48);
+            }
+            return sessionPrf(session,premaster,"master secret",join(session.ch.random,session.sh.random),48);
+        }finally{Arrays.fill(premaster,(byte)0);}
+    }
+    private static byte[] handshakeHash(Session session,byte[] transcript)throws GeneralSecurityException {
+        if(session.sh.version<0x0303)return join(MessageDigest.getInstance("MD5").digest(transcript),MessageDigest.getInstance("SHA-1").digest(transcript));
+        return MessageDigest.getInstance(session.suite.hash.equals("HmacSHA384")?"SHA-384":"SHA-256").digest(transcript);
+    }
+    private static byte[] sessionPrf(Session session,byte[] secret,String label,byte[] seed,int length)throws GeneralSecurityException {
+        if(session.sh.version>=0x0303)return prf(session.suite.hash,secret,label,seed,length);
+        int half=(secret.length+1)/2;byte[] a=prf("HmacMD5",Arrays.copyOfRange(secret,0,half),label,seed,length),b=prf("HmacSHA1",Arrays.copyOfRange(secret,secret.length-half,secret.length),label,seed,length);
+        for(int n=0;n<length;n++)a[n]^=b[n];return a;
+    }
     private static Suite suite(int code){
         Suite s;
         switch(code){
+            case 0x000a:s=new Suite(24,0);s.mode=3;s.mac=20;s.block=8;s.cipher="DESede";return s;
             case 0x1301:s=new Suite(16,12);s.tls13=true;return s;
             case 0x1302:s=new Suite(32,12);s.tls13=true;s.hash="HmacSHA384";return s;
             case 0x1303:s=new Suite(32,12);s.tls13=true;s.mode=2;return s;
@@ -90,7 +143,7 @@ final class TlsDecoder {
         }
     }
     private static final class State {
-        final Suite suite;byte[] key,iv,macKey,traffic;long sequence;boolean application,started,finished;ByteArrayOutputStream handshake=new ByteArrayOutputStream();
+        final Suite suite;byte[] key,iv,macKey,traffic;long sequence;boolean application,started,finished,implicitIv;ByteArrayOutputStream handshake=new ByteArrayOutputStream();
         State(Suite suite){this.suite=suite;}
         void secret(byte[] value)throws GeneralSecurityException {
             if(value==null||value.length!=(suite.hash.equals("HmacSHA384")?48:32))throw new GeneralSecurityException();
@@ -102,13 +155,13 @@ final class TlsDecoder {
         byte[] app=keys.secret(side+"_TRAFFIC_SECRET_0",session.ch.random);
         if(suite.tls13){byte[] handshake=keys.secret(side+"_HANDSHAKE_TRAFFIC_SECRET",session.ch.random);if(handshake!=null)state.secret(handshake);else if(app!=null){state.secret(app);state.application=true;}else{analysis.warn("TLS key log 没有此方向的匹配会话密钥");return;}}
         else {
-            byte[] master=keys.secret("CLIENT_RANDOM",session.ch.random);if(master==null){analysis.warn("TLS key log 没有匹配的 CLIENT_RANDOM 会话密钥");return;}
-            byte[] block=prf(suite.hash,master,"key expansion",join(session.sh.random,session.ch.random),2*(suite.mac+suite.key+suite.iv));int n=client?0:suite.mac;
-            state.macKey=Arrays.copyOfRange(block,n,n+suite.mac);n=2*suite.mac+(client?0:suite.key);state.key=Arrays.copyOfRange(block,n,n+suite.key);n=2*(suite.mac+suite.key)+(client?0:suite.iv);state.iv=Arrays.copyOfRange(block,n,n+suite.iv);
+            state.implicitIv=session.sh.version==0x0301&&suite.mode==3;int ivSize=state.implicitIv?suite.block:suite.iv;
+            byte[] block=sessionPrf(session,session.master,"key expansion",join(session.sh.random,session.ch.random),2*(suite.mac+suite.key+ivSize));int n=client?0:suite.mac;
+            state.macKey=Arrays.copyOfRange(block,n,n+suite.mac);n=2*suite.mac+(client?0:suite.key);state.key=Arrays.copyOfRange(block,n,n+suite.key);n=2*(suite.mac+suite.key)+(client?0:ivSize);state.iv=Arrays.copyOfRange(block,n,n+ivSize);
         }
         ByteArrayOutputStream plain=new ByteArrayOutputStream();List<CaptureEngine.Span> stamps=new ArrayList<>();boolean failed=false;
         for(Record record:direction.records){
-            if(!suite.tls13&&record.type==20){state.started=true;state.sequence=0;continue;}
+            if(!suite.tls13&&record.type==20){if(state.started){analysis.warn("TLS 再协商暂不支持，已保留此前解密的数据");break;}state.started=true;state.sequence=0;continue;}
             if(suite.tls13&&record.type!=23)continue;if(!suite.tls13&&!state.started)continue;
             byte[] decoded;int type=record.type;
             try{
@@ -137,8 +190,9 @@ final class TlsDecoder {
     private static byte[] decrypt12(State state,Record record,boolean etm)throws GeneralSecurityException,InvalidCipherTextException {
         Suite s=state.suite;byte[] body=record.body;
         if(s.mode==3){
-            if(etm){if(body.length<16+s.mac)throw new GeneralSecurityException();int end=body.length-s.mac;byte[] expected=hmac(s.macHash,state.macKey,join(aad(state.sequence,record,end),Arrays.copyOf(body,end)));if(!MessageDigest.isEqual(expected,Arrays.copyOfRange(body,end,body.length)))throw new GeneralSecurityException();body=Arrays.copyOf(body,end);}
-            if(body.length<32||(body.length-16)%16!=0)throw new GeneralSecurityException();Cipher cipher=Cipher.getInstance("AES/CBC/NoPadding");cipher.init(Cipher.DECRYPT_MODE,new SecretKeySpec(state.key,"AES"),new IvParameterSpec(Arrays.copyOf(body,16)));byte[] plain=cipher.doFinal(body,16,body.length-16);
+            if(etm){if(body.length<s.block+(state.implicitIv?0:s.block)+s.mac)throw new GeneralSecurityException();int end=body.length-s.mac;byte[] expected=hmac(s.macHash,state.macKey,join(aad(state.sequence,record,end),Arrays.copyOf(body,end)));if(!MessageDigest.isEqual(expected,Arrays.copyOfRange(body,end,body.length)))throw new GeneralSecurityException();body=Arrays.copyOf(body,end);}
+            int explicit=state.implicitIv?0:s.block;if(body.length<explicit+s.block||(body.length-explicit)%s.block!=0)throw new GeneralSecurityException();
+            byte[] iv=state.implicitIv?state.iv:Arrays.copyOf(body,s.block);Cipher cipher=Cipher.getInstance(s.cipher+"/CBC/NoPadding");cipher.init(Cipher.DECRYPT_MODE,new SecretKeySpec(state.key,s.cipher),new IvParameterSpec(iv));byte[] plain=cipher.doFinal(body,explicit,body.length-explicit);if(state.implicitIv)state.iv=Arrays.copyOfRange(body,body.length-s.block,body.length);
             int padding=(plain[plain.length-1]&255)+1;if(padding>plain.length)throw new GeneralSecurityException();for(int n=plain.length-padding;n<plain.length;n++)if((plain[n]&255)!=padding-1)throw new GeneralSecurityException();int length=plain.length-padding;
             if(etm)return Arrays.copyOf(plain,length);if(length<s.mac)throw new GeneralSecurityException();length-=s.mac;byte[] message=Arrays.copyOf(plain,length),expected=hmac(s.macHash,state.macKey,join(aad(state.sequence,record,length),message));if(!MessageDigest.isEqual(expected,Arrays.copyOfRange(plain,length,length+s.mac)))throw new GeneralSecurityException();return message;
         }

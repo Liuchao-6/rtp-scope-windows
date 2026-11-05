@@ -17,6 +17,7 @@ public final class TlsKeyLog {
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();byte[] buffer=new byte[8192];int n;
         while((n=input.read(buffer))!=-1){if(bytes.size()+n>MAX_BYTES)throw new IOException("TLS 密钥日志超过 8 MiB");bytes.write(buffer,0,n);}
         String text=new String(bytes.toByteArray(),StandardCharsets.UTF_8);Map<String,byte[]> values=new LinkedHashMap<>();int line=0,ignored=0;
+        if(text.contains("PRIVATE KEY-----"))throw new IOException("检测到私钥文件；请从「解密密钥 → 导入 RSA 私钥」入口导入 .key / .pem 文件");
         for(String raw:text.replace("\uFEFF","").split("\\r?\\n")) {
             line++;String value=raw.trim();if(value.isEmpty()||value.startsWith("#"))continue;
             String[] words=value.split("\\s+");String label=words[0];

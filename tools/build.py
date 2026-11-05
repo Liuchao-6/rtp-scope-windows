@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,json,os,shutil,struct,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.6.0'
+VERSION='0.7.1'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'

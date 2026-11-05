@@ -4,7 +4,7 @@
   "files_sha256": {
     "com/liuchao/rtpscope/core/AudioRenderer.java": "17ac2dea651315a79ab258e33aa8d890f23f24a026f1580ddf542f0d318ce6f6",
     "com/liuchao/rtpscope/core/CallFlow.java": "b1efd39f6487eb394459dcf45918f1f770cf7c9f029c17f8fa1084019e9cec22",
-    "com/liuchao/rtpscope/core/CaptureEngine.java": "831983f7d7f90e246d21f1e8e1fb6cdc4d93e985cda199e239b3f19875e39cc9",
+    "com/liuchao/rtpscope/core/CaptureEngine.java": "1d94f77a0840e08a3aca6718f77e93a2e69839c8571019aefff08be85525ced1",
     "com/liuchao/rtpscope/core/DtmfParser.java": "5a54b36a0a71879be2ed03193b46c425f07c72d376be2a6328704f2e853690f7",
     "com/liuchao/rtpscope/core/QualityAnalyzer.java": "c5c96dd8a3c34e2c628665bcf1cc2f3b275ce467a9881594e7221df7b4df79e0",
     "com/liuchao/rtpscope/core/SipSyntax.java": "751418a9fa42f30f2334e1e9349aba1c4476ddf4934f256f6a79827e9f7074f0",
@@ -49,9 +49,9 @@
     "com/liuchao/rtpscope/core/CallSearch.java": "327315229d0d48b8bb9be728eaccb1bffe363db947d8e8e8f7ccd29bd10abf6d",
     "com/liuchao/rtpscope/core/PacketStore.java": "0575e05411f13263ad51eae698c613851090bdb9dd8ad7d22c7c9f777a79b345",
     "com/liuchao/rtpscope/core/MediaDecoder.java": "851b7e31acf9b335473beadaef399910823b7dcf18d843469181c9d7bb88903f",
-    "com/liuchao/rtpscope/core/SignalingTransport.java": "af2c5a856ffa98d6b27ba224a7cb9730e1fe308023e58f70f781a4cb0c9e78f1",
-    "com/liuchao/rtpscope/core/TlsDecoder.java": "d5044da2aa968d6ce1d6d014c44b8011971c6769f2ca52eaef1aa4ed82d2b53f",
-    "com/liuchao/rtpscope/core/TlsKeyLog.java": "ba92fe674cc5dc8dd8dab9dff614b01e0eff8e7bd3fba810ab3b30fdc78e56a7",
+    "com/liuchao/rtpscope/core/SignalingTransport.java": "d624e4bea8bbbf725cbf9f6b6b5f11ca3facec9b1515f84c5b5619c0f1e5f79e",
+    "com/liuchao/rtpscope/core/TlsDecoder.java": "53e3293cfbb91f17bd52b442c52bb3f583a59b6f2867120f52a24d149ebb6146",
+    "com/liuchao/rtpscope/core/TlsKeyLog.java": "6a2b81be90d720751e302d094ec4ed7f25e536a59435bdf3b685f21ba7f4ea9f",
     "org/concentus/Analysis.java": "c084ab97336208d71f50b7110ca51f395f6240b39a5c263c4d8e96149946334a",
     "org/concentus/AnalysisInfo.java": "6727cd2dc7b962a149cf6b8c0c1e9657afd3d8ca5783dbc92d4ed0f38d1f735b",
     "org/concentus/ApplySineWindow.java": "036340fd6caf93534d91c919fa0edac9670d8e9608a83c16d7daf5693d6ef300",
@@ -175,7 +175,8 @@
     "org/concentus/VoiceActivityDetection.java": "8746f98d1604de669dec05ff5d3eec9bbb57e876cbfa187f39bf49bd4dc9596f",
     "org/concentus/VorbisLayout.java": "2f66b2e0eec6e1896ae05a9fa10973ecde3f6f2c35aca4ff82aa4860e356a542",
     "org/concentus/VQ.java": "7103d3f1c686071481c43791044896ecabdc318b5efe5131e393875c7994a2de",
-    "org/concentus/VQ_WMat_EC.java": "f5b8e105a83059a1566b527bccc19c0dc37e342e2f88489a8eaa8912c381a9d2"
+    "org/concentus/VQ_WMat_EC.java": "f5b8e105a83059a1566b527bccc19c0dc37e342e2f88489a8eaa8912c381a9d2",
+    "com/liuchao/rtpscope/core/TlsRsaKeys.java": "fa9946f299983aa1ab1d07e23505788f713b5c75fd47a3b3b7442f20387344ea"
   },
-  "source_revision_note": "source_commit identifies the Android 0.3.0 baseline only. Capture recovery and the shared DtmfParser, SipInfoDtmf, InbandDtmf, KeyAnalysis, CallFlow, WaveformData and WaveformViewport were synchronized from the Android 0.5.0 working tree. files_sha256 records the current identical imported sources, including unchanged upstream G.729 sources. Desktop AudioPreview adapts the Android class with a desktop package. CaptureWorkspace is synchronized from the Android 0.6.0 working tree for independent multi-file selection and lightweight per-file view state. Call discovery and optional disk-backed large-capture parsing are synchronized from the Android 0.7.0 working tree; Android retains the default 128 MiB / 64 MiB limits, and Windows uses the 1 GiB disk-backed mode. TLS/WS transport, independently imported session keys and Opus media support are synchronized from the Android 0.8.0 working tree."
+  "source_revision_note": "source_commit identifies the Android 0.3.0 baseline only. Capture recovery and the shared DtmfParser, SipInfoDtmf, InbandDtmf, KeyAnalysis, CallFlow, WaveformData and WaveformViewport were synchronized from the Android 0.5.0 working tree. files_sha256 records the current identical imported sources, including unchanged upstream G.729 sources. Desktop AudioPreview adapts the Android class with a desktop package. CaptureWorkspace is synchronized from the Android 0.6.0 working tree for independent multi-file selection and lightweight per-file view state. Call discovery and optional disk-backed large-capture parsing are synchronized from the Android 0.7.0 working tree; Android retains the default 128 MiB / 64 MiB limits, and Windows uses the 1 GiB disk-backed mode. TLS/WS transport, independently imported session keys and Opus media support are synchronized from the Android 0.8.0 working tree. RSA key-exchange decryption and private-key import are synchronized from the Android 0.9.0 working tree."
 }

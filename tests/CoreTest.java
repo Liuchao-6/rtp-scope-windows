@@ -114,6 +114,7 @@ public final class CoreTest {
         checks+=CaptureWorkspaceTest.run();
         checks+=CallSearchTest.run(fixtures);
         checks+=SecureTransportTest.run(fixtures,output);
+        checks+=RsaTransportTest.run(fixtures,output);
         checks+=PresentationTest.run(integrated,tcp,keys);
         checks+=PartialCaptureTest.run(fixtures);
         checks+=KeyModesTest.run(fixtures);

@@ -1,0 +1,119 @@
+{
+  "generator": "Python ssl/OpenSSL and independent cryptography RFC vectors",
+  "synthetic_only": true,
+  "private_keys_are_public_test_data": true,
+  "tls_cases": {
+    "rsa-tls12-gcm128": {
+      "version": "TLSv1.2",
+      "cipher": "AES128-GCM-SHA256",
+      "resumed": false
+    },
+    "rsa-tls12-gcm256": {
+      "version": "TLSv1.2",
+      "cipher": "AES256-GCM-SHA384",
+      "resumed": false
+    },
+    "rsa-tls12-cbc128": {
+      "version": "TLSv1.2",
+      "cipher": "AES128-SHA256",
+      "resumed": false
+    },
+    "rsa-tls12-cbc256": {
+      "version": "TLSv1.2",
+      "cipher": "AES256-SHA256",
+      "resumed": false
+    },
+    "rsa-tls12-cbc-sha1": {
+      "version": "TLSv1.2",
+      "cipher": "AES128-SHA",
+      "resumed": false
+    },
+    "rsa-tls10": {
+      "version": "TLSv1",
+      "cipher": "AES128-SHA",
+      "resumed": false
+    },
+    "rsa-tls11": {
+      "version": "TLSv1.1",
+      "cipher": "AES128-SHA",
+      "resumed": false
+    },
+    "rsa-wss": {
+      "version": "TLSv1.2",
+      "cipher": "AES128-GCM-SHA256",
+      "resumed": false
+    },
+    "rsa-mutual": {
+      "version": "TLSv1.2",
+      "cipher": "AES128-GCM-SHA256",
+      "resumed": false
+    },
+    "rsa-resumed": {
+      "version": "TLSv1.2",
+      "cipher": "AES128-GCM-SHA256",
+      "resumed": true
+    },
+    "rsa-ecdhe": {
+      "version": "TLSv1.2",
+      "cipher": "ECDHE-RSA-AES128-GCM-SHA256",
+      "resumed": false
+    },
+    "rsa-tls13": {
+      "version": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "resumed": false
+    }
+  },
+  "files_sha256": {
+    "rsa-synthetic-pkcs1.key": "a211296e1ea23d7a324f6045fe26f10d8df54b0f8819b77b0fe65a0352f7bdc9",
+    "rsa-synthetic-pkcs1.der": "bab5c7471481314ebef889071f04d9276bf2e54123c2bb8e59fa568b4ded37bf",
+    "rsa-synthetic-pkcs8.key": "de5da1b28869951a2781a7c43d498f7740c6e8400cc0b1b9d76db451ed5730ec",
+    "rsa-synthetic-pkcs8.der": "d8a3c59301ffa6bcf43bde83e726b58f6bec7204daa6cd9ad24b69e0aace091c",
+    "rsa-synthetic-certificate.pem": "dc6d6a3d1f13388b12cce79814c04a8e34e632eb614cb89f6a492c086e58419a",
+    "rsa-synthetic-wrong.key": "202395283ca51a4081e8e384cc579964356489201a2c28024ae2ecc3a39163b3",
+    "rsa-tls12-gcm128.pcap": "92a623ebd8eeeae6f8a5105e4ef6b0c281df4536326bfeda5ed72e62c52213c6",
+    "rsa-tls12-gcm128.keys": "cba784e43f4873f8f63f4aad8992d42294e5113c5249b0433fd376bfb330882f",
+    "rsa-tls12-gcm256.pcap": "318c6cf35a8d80780669f0dc5d2b4b9cfe8d168959f1bbe00fad2de51c008673",
+    "rsa-tls12-gcm256.keys": "d869bc89882ba01e5d250b1d22ffb23c1d8455182ad7087cb3b0ba276de4d702",
+    "rsa-tls12-cbc128.pcap": "7602466da2f7df5175e3dd5288c98e5a7dcd80ff4f6d7615d3d22ff26b8cb42f",
+    "rsa-tls12-cbc128.keys": "68e950c297c0bdc6e56ab626593e2d9d01e07787973485f7a88b7b18760c6429",
+    "rsa-tls12-cbc256.pcap": "e265a3b185dca97aeffeaa4417a16858e6da036049a33919b38e5a3632ddc270",
+    "rsa-tls12-cbc256.keys": "14e15a448acdb7b439c2ebd7364d6005c5509e1a98429d1dc86e68d5b01d95ec",
+    "rsa-tls12-cbc-sha1.pcap": "daccf7f4c8668638af6be7d6aaf0423e2cd98e086fc016b8e9baf8e8d1f60d52",
+    "rsa-tls12-cbc-sha1.keys": "8c2b119139fd03bc818fc359f51d2b5e54d442ceac7dfe138af955d4334641ec",
+    "rsa-tls10.pcap": "ba555a1790102394b3791168c4f70519c8938ddbbd13fc06727f80a62810a7a3",
+    "rsa-tls10.keys": "4977308038687d7921bed558863b1a41944890087dc31ba52f2105466de8d3ca",
+    "rsa-tls11.pcap": "33e91dc36447c9763c9e2c3244ceb36ac1f260ca7fc35599d43326b4f6b375c6",
+    "rsa-tls11.keys": "3c56df6205ca8925736ce19c8d09995c179c21d6f43a10d6ebfe352aa81f9416",
+    "rsa-wss.pcap": "8d02c195330e1bd29c661cedecd8d17c53f065d1ca86e303e158fa105c289cb8",
+    "rsa-wss.keys": "9e5de455e523a36bac8612d1bd8a42231c45da4ce4484831a20d5fc68458889b",
+    "rsa-mutual.pcap": "1475d62fd0f3006241cc091af33ef916649b4f0dd055e0c9d51b11263ca2ed52",
+    "rsa-mutual.keys": "4fb6f5a233285233374beb141567b620b82fac1bd70f085e6558f9cb91d17f17",
+    "rsa-resumed.pcap": "75754e19355226a90d3a00e5f1fa4a87f8bbadad726724cc30cf13745815176c",
+    "rsa-resumed.keys": "d0f194310478226139c2d0580d7d56211df75059156a521c0e2cb8c8f9756c66",
+    "rsa-ecdhe.pcap": "c274c91d2a73ad539d97103a9a187b8a56f40c0be1dd10018979a033071826cc",
+    "rsa-ecdhe.keys": "1475511096e05f2d35b873680dbc1219d97952a2e0fc433dba53cb676ab2c3b8",
+    "rsa-tls13.pcap": "f90c7651a7e95fa5ef680e433a140f8886576216f766dc2b3fb38ffea761e213",
+    "rsa-tls13.keys": "d298ae843fdd64e84736979a2e36bcbf8a98541589e5ecd70450bbe0d2a40599",
+    "rsa-tls12-noems.pcap": "f93eb5cbe0dd06e5507f7010a3466912d7c97d93c3ca2418eb79ff5b21dbcb07",
+    "rsa-tls12-noems.keys": "891dce52bfbc023a03687a478955a0f41c24977bbad3912a596be10f0b2206f8",
+    "rsa-missing-exchange.pcap": "c3a7f96a89f15b58a01e27ffb65a645e6d4a88fc29a3512e2d305d4b91e58d18",
+    "rsa-missing-certificate.pcap": "896f0876002176382f92c88551a252644ecbf782e01cb845bad7770bb9a2c1f7",
+    "rsa-tls12-vector-ems.pcap": "531c0fbd8c4d3d1a653e813ce7b48636009a6b8214f7de315d066af7eb59d57a",
+    "rsa-tls12-vector-ems.keys": "70ad68ce5ae3bc03b756762f839cf18152497a2764a65f69b30202df03586822",
+    "rsa-tls12-vector-sha384.pcap": "67dbd6e99caf7340e03a51d615f8110cf6c1b73614b86a400d66529c0002d4cb",
+    "rsa-tls12-vector-sha384.keys": "ab49c57d91d803df8f539f3498feb70f4f6030713a0fea9adcc3a3c462b75782",
+    "rsa-tls10-noems.pcap": "1c4f04f284d90fa6853f10bb9f732f4d1471481a80e8fcf5b3e621b97768ad14",
+    "rsa-tls10-noems.keys": "6aac54cadd2e4bb1ffa333a591ad8feadf0d16204ab19a0a7ad8680a6e3bf171",
+    "rsa-tls11-noems.pcap": "c3d2797692223752b98a0fb751d60883fbe1fb1de7445874418818a9e2587213",
+    "rsa-tls11-noems.keys": "e7ee4186412a450e060ce8f6deb8b1f9fdfbeb044084e82f7c245db6420b8e1d",
+    "rsa-tls10-vector-ems.pcap": "e706501fdb04834914b6c968b4c0d9a4dc9e67f3e3d23cf072b25f1476a77527",
+    "rsa-tls10-vector-ems.keys": "9723d433e720fcf22b24a078865839d78532aa95b00225f7357e8344ec81b040",
+    "rsa-tls10-vector-etm.pcap": "30d6d8bfb1588f361b1af0b2b51986d2e4bb34a35af5c475bdd97d595aae6e10",
+    "rsa-tls10-vector-etm.keys": "357691589b168d68473e7709887e5d2df846f361487eac2dba2818e1ad26f5d9",
+    "rsa-tls10-3des.pcap": "ff02bf4ec4765ed4a97eba8e86864f3ff4eff8c7870161bf0950c431be1c6ec0",
+    "rsa-tls10-3des.keys": "1471faf93bbfb1bcae8286b919ff15a5ba78b5500c64e6cf234aace987bab586",
+    "rsa-bad-premaster.pcap": "28afb6592770e32601ce05b64bb99386cd09fdc24b53af421085530316c97f3f",
+    "rsa-bad-premaster.keys": "d1e3775de430085e1a271767a27053858c703a09c9f3365e5a6b16a8803b3ad4"
+  }
+}

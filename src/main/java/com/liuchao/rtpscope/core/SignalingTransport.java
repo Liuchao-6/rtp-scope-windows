@@ -14,8 +14,8 @@ final class SignalingTransport {
         Data message(byte[] payload,int at,String type){Data out=new Data(src,dst,payload,Collections.singletonList(new CaptureEngine.Span(0,time(at))),direction,gap);out.transport=type;return out;}
     }
     interface Receiver {void accept(Data data)throws IOException;}
-    static void decode(List<Data> inputs,TlsKeyLog keys,CaptureEngine.Analysis analysis,Receiver receiver)throws IOException {
-        List<Data> decoded=TlsDecoder.decrypt(inputs,keys,analysis);
+    static void decode(List<Data> inputs,TlsKeyLog keys,TlsRsaKeys rsa,CaptureEngine.Analysis analysis,Receiver receiver)throws IOException {
+        List<Data> decoded=TlsDecoder.decrypt(inputs,keys,rsa,analysis);
         for(Data data:decoded){
             if(!websocket(data,decoded,analysis,receiver))receiver.accept(data);
         }

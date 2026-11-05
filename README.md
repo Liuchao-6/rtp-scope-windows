@@ -4,13 +4,13 @@
 
 在一个窗口中查看 SIP 交互、回放通话语音、识别按键和定位媒体问题。支持本地离线分析，适用于 **Windows 10 / Windows 11 64 位**。
 
-[下载便携版](dist/ChaogeHuatan-0.6.0-win-x64.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈问题](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](dist/ChaogeHuatan-0.7.1-win-x64.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈问题](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
 ## 主要功能
 
 - **抓包导入**：支持 PCAP / PCAPNG，多选或拖放导入，各文件独立分析、切换查看；支持恢复中断抓包。
 - **查找通话**：按主叫、被叫、时间段、信令或媒体 IP 组合筛选；列表显示号码和开始时间，选中后查看完整通话。
-- **加密与 WebSocket 信令**：支持 SIP over WS、TLS 1.2 / 1.3 和 WSS；PCAP 与 NSS TLS key log 分别导入，追加密钥后自动重新分析。
+- **加密与 WebSocket 信令**：支持 SIP over WS、TLS / WSS；PCAP、RSA 私钥和 NSS TLS key log 分别导入，追加密钥后自动重新分析。
 - **SIP 分析**：按通话展示流序图，点击消息查看源 / 目的 IP、端口、彩色报文和 SDP；支持搜索与复制原文。
 - **语音回放**：支持 G.711（PCMA / PCMU）、G.729 / G.729A、Opus，可播放双向通话并导出 WAV；Opus 保留 48 kHz 输出，立体声合并为单路方向音频。
 - **按键识别**：支持 RFC 2833 / 4733、SIP INFO、In-band DTMF，显示按键类型、方向和持续时间。
@@ -30,11 +30,15 @@ SIP 流序图与彩色报文，点击消息查看详情：
 
 ![WSS 信令与双向 Opus 波形](docs/images/wss-opus.png)
 
+RSA 私钥独立导入后还原 WSS 信令：
+
+![RSA 私钥导入与 WSS 信令](docs/images/rsa-private-key.png)
+
 以上均使用合成演示数据，不包含真实通话信息。
 
 ## 下载与使用
 
-1. 下载 [便携 ZIP](dist/ChaogeHuatan-0.6.0-win-x64.zip)，**完整解压**后双击 `ChaogeHuatan.exe`。自带运行环境，无需另装 Java。
+1. 下载 [便携 ZIP](dist/ChaogeHuatan-0.7.1-win-x64.zip)，**完整解压**后双击 `ChaogeHuatan.exe`。自带运行环境，无需另装 Java。
 2. 点击「体验演示」，或通过「导入抓包」 / 拖放打开文件；可一次导入多个文件，再从顶部下拉框切换。
 3. 在左侧「找通话」输入号码、IP 或 Call-ID，或点击「筛选」组合主被叫、IP 和时间；选中结果后查看完整流序图，点击消息查看报文。
 4. 选择媒体流播放或查看波形。用「− / ＋」或 Ctrl＋滚轮缩放，点击波形或按键标签定位，按需导出 WAV。
@@ -43,11 +47,18 @@ SIP 流序图与彩色报文，点击消息查看详情：
 
 筛选时间使用本机时区，可填 `14:30:00` 或 `2026-11-05 14:30:00`，可加三位毫秒；匹配在时间段内出现的通话。各条件同时生效，点左侧「全部」清除通话筛选。顶部搜索用于筛选报文或媒体。
 
-## TLS key log 独立导入
+## 解密密钥独立导入
 
-PCAP 与密钥日志可按任意顺序分别导入；点击「导入 TLS 密钥」选择 NSS key log 文件。追加或清除密钥后自动重新分析当前抓包，保留通话筛选；同一会话内切换文件也会使用已加载的密钥。密钥只保留在内存中，退出后需重新导入。
+点击「解密密钥」选择类型，PCAP 与密钥可按任意顺序分别导入：
 
-支持 TLS 1.2 的 AES-GCM、ChaCha20-Poly1305、常见 AES-CBC，以及 TLS 1.3 的 AES-GCM、ChaCha20-Poly1305、AES-CCM。需要匹配的会话密钥及 ClientHello / ServerHello；证书或服务器私钥不能代替 key log。暂不处理 TLS 1.0 / 1.1、0-RTT 和 DTLS-SRTP。WS / WSS 支持 SIP 消息、掩码、分片及 permessage-deflate；厂商自定义 JSON 信令需另行适配。
+- **RSA 私钥**：适配 Wireshark「RSA keys list」使用的 `.key / .pem / .der`，支持未加密的 PKCS#1 / PKCS#8。可解密 TLS 1.0～1.2 的 RSA 密钥交换，支持 AES-GCM、AES-CBC 和 3DES-CBC；需要 ClientHello、ServerHello 和 ClientKeyExchange，扩展主密钥还需要完整初始握手。
+- **TLS key log**：导入 NSS 会话密钥日志；ECDHE / DHE、TLS 1.3 等会话需要这种文件。支持 TLS 1.2 的 AES-GCM、ChaCha20-Poly1305、常见 AES-CBC，以及 TLS 1.3 的 AES-GCM、ChaCha20-Poly1305、AES-CCM。
+
+追加或清除密钥后自动重新分析当前抓包，保留通话筛选；切换文件会继续使用已加载的密钥。两类密钥可同时加载，只保存在当前会话内；退出后需重新导入。
+
+RSA 证书、公钥不能代替私钥；需要密码的加密私钥暂不支持。单独抓到的复用会话缺少初始密钥交换时，需使用对应 key log。RSA 私钥不能用于解密 ECDHE 或 TLS 1.3；TLS 再协商和 0-RTT 暂未支持。
+
+WS / WSS 支持 SIP 消息、掩码、分片及 permessage-deflate；厂商自定义 JSON 信令需另行适配。
 
 ## 使用范围
 

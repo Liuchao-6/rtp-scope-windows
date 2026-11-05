@@ -113,6 +113,7 @@ public final class CaptureEngine {
     private int mediaBytes, tcpBytes;
     private long packetLimit=500000;
     private TlsKeyLog keyLog=TlsKeyLog.empty();
+    private TlsRsaKeys rsaKeys=TlsRsaKeys.empty();
     private boolean validHeader;
     private static final class FormatException extends IOException {
         FormatException(String message){super(message);}
@@ -127,14 +128,20 @@ public final class CaptureEngine {
         return read(input,TlsKeyLog.empty());
     }
     public static Analysis read(InputStream input,TlsKeyLog keys)throws IOException {
-        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);return read(input,engine,null);
+        return read(input,keys,TlsRsaKeys.empty());
+    }
+    public static Analysis read(InputStream input,TlsKeyLog keys,TlsRsaKeys rsa)throws IOException {
+        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);engine.rsaKeys=Objects.requireNonNull(rsa);return read(input,engine,null);
     }
     public interface Progress {void update(long bytes,long packets);}
     public static Analysis readLarge(InputStream input,File cacheDirectory,Progress progress)throws IOException{
         return readLarge(input,cacheDirectory,progress,TlsKeyLog.empty());
     }
     public static Analysis readLarge(InputStream input,File cacheDirectory,Progress progress,TlsKeyLog keys)throws IOException{
-        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(cacheDirectory);
+        return readLarge(input,cacheDirectory,progress,keys,TlsRsaKeys.empty());
+    }
+    public static Analysis readLarge(InputStream input,File cacheDirectory,Progress progress,TlsKeyLog keys,TlsRsaKeys rsa)throws IOException{
+        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);engine.rsaKeys=Objects.requireNonNull(rsa);engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(cacheDirectory);
         try{return read(input,engine,progress);}catch(IOException|RuntimeException e){try{engine.result.close();}catch(IOException ignored){}throw e;}
     }
     private static Analysis read(InputStream input,CaptureEngine supplied,Progress progress)throws IOException{
@@ -448,7 +455,7 @@ public final class CaptureEngine {
             f.segments.clear();
         }
         tcp.clear(); currentTcp.clear();
-        SignalingTransport.decode(signals,keyLog,result,data->sip(data.bytes,data.src,data.dst,data.transport,data.time(0),data.spans));
+        SignalingTransport.decode(signals,keyLog,rsaKeys,result,data->sip(data.bytes,data.src,data.dst,data.transport,data.time(0),data.spans));
         result.sip.sort(Comparator.comparingLong(m->m.timeUs));
         for (SipMessage m : result.sip) {
             if (m.callId.isEmpty()) continue;

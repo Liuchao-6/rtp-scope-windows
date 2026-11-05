@@ -87,6 +87,7 @@ public final class DesktopTest {
         File diagnostic=new File(out,"diagnostics-test.txt");DesktopApp.diagnostics(diagnostic);check(new String(Files.readAllBytes(diagnostic.toPath()),"UTF-8").contains("flow=8"),"bundled diagnostic exercises decode");
         checks+=MultiCaptureTest.run(fixtures,out);
         checks+=CallDiscoveryTest.run(fixtures,out);
+        checks+=CallListRefreshTest.run();
         checks+=TlsImportTest.run(fixtures);
         checks+=WaveformTest.run(fixtures,out);
         System.out.println("PASS: "+checks+" desktop assertions; filtering, capture finalization, real Swing actions, syntax colors, waveform, diagnostic");

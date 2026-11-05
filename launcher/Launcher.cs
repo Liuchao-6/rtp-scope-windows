@@ -7,8 +7,8 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("超哥话探")]
 [assembly: System.Reflection.AssemblyDescription("SIP · RTP 通话分析")]
 [assembly: System.Reflection.AssemblyProduct("超哥话探")]
-[assembly: System.Reflection.AssemblyVersion("0.6.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("0.6.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.7.1.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.7.1.0")]
 
 internal static class Launcher {
     // ProcessStartInfo.Arguments follows Windows command-line quoting, without a shell.

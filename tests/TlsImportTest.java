@@ -22,6 +22,20 @@ public final class TlsImportTest {
             ready(app);SwingUtilities.invokeAndWait(()->{check(app.model.analysis.sip.size()==3,"key log added after PCAP restores decrypted SIP automatically");int previous=app.tlsKeyCount();app.loadTlsKeyLog(new File(fixtures,"tls12-gcm128.keys"));count[0]=previous;});
             ready(app);SwingUtilities.invokeAndWait(()->{check(app.tlsKeyCount()==count[0],"same key log can be imported again without duplicate entries");app.shutdown();check(app.tlsKeyCount()==0,"closing clears session key references");});
         }finally{SwingUtilities.invokeAndWait(app::shutdown);}
+        SwingUtilities.invokeAndWait(()->{holder[0]=new DesktopApp();holder[0].loadRsaKey(new File(fixtures,"rsa-synthetic-pkcs1.key"));});DesktopApp rsaApp=holder[0];
+        try{
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.rsaKeyCount()==1&&rsaApp.tlsKeyCount()==0&&rsaApp.captureCount()==0,"RSA private key imports independently before PCAP");rsaApp.loadFiles(Arrays.asList(new File(fixtures,"rsa-wss.pcap"),new File(fixtures,"rsa-tls12-gcm256.pcap")));});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.model.analysis.sip.size()==3,"RSA key imported first decrypts WSS after PCAP");CallSearch.Filter filter=new CallSearch.Filter();filter.caller="1001";rsaApp.setCallSearch(filter);rsaApp.loadRsaKey(new File(fixtures,"rsa-synthetic-pkcs8.der"));});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.rsaKeyCount()==1&&rsaApp.captureCount()==2,"RSA same key in different format deduplicates without capture entry");check(rsaApp.model.callSearch.caller.equals("1001")&&rsaApp.model.analysis.sip.size()==3,"RSA import preserves call filter and reanalyzes active capture");rsaApp.selectCapture(1);});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.model.analysis.sip.size()==3,"RSA key applies when switching independent PCAPs");rsaApp.clearRsaKeys();});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.rsaKeyCount()==0&&rsaApp.model.analysis.sip.isEmpty(),"clearing RSA keys removes decrypted SIP after reanalysis");rsaApp.loadRsaKey(new File(fixtures,"rsa-synthetic-pkcs1.key"));});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.model.analysis.sip.size()==3,"RSA key imported after PCAP automatically restores SIP");rsaApp.loadTlsKeyLog(new File(fixtures,"rsa-tls12-gcm256.keys"));});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.rsaKeyCount()==1&&rsaApp.tlsKeyCount()>0,"RSA private keys and NSS key logs coexist");rsaApp.clearRsaKeys();});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.model.analysis.sip.size()==3&&rsaApp.rsaKeyCount()==0,"clearing RSA retains independently imported NSS key log");rsaApp.loadRsaKey(new File(fixtures,"rsa-synthetic-wrong.key"));});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.rsaKeyCount()==1&&rsaApp.model.analysis.sip.size()==3,"key log takes priority over an unrelated RSA private key");rsaApp.clearTlsKeys();});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.tlsKeyCount()==0&&rsaApp.rsaKeyCount()==1&&rsaApp.model.analysis.sip.isEmpty(),"clearing key log retains RSA key and exposes certificate mismatch");rsaApp.loadRsaKey(new File(fixtures,"rsa-synthetic-pkcs8.key"));});
+            ready(rsaApp);SwingUtilities.invokeAndWait(()->{check(rsaApp.rsaKeyCount()==2&&rsaApp.model.analysis.sip.size()==3,"appending correct RSA key restores captured SIP");JButton button=(JButton)find(rsaApp,"importTlsKeys");check(button.getText().contains("2")&&button.getToolTipText().contains("RSA 私钥 2")&&button.getToolTipText().contains("TLS key log 0"),"key action displays separate RSA and key-log counts");rsaApp.shutdown();check(rsaApp.rsaKeyCount()==0&&rsaApp.tlsKeyCount()==0,"shutdown clears both private and session key references");});
+        }finally{SwingUtilities.invokeAndWait(rsaApp::shutdown);}
         return checks;
     }
 }
