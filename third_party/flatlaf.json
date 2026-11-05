@@ -1,0 +1,8 @@
+{
+  "name": "FlatLaf",
+  "version": "3.6.2",
+  "url": "https://repo.maven.apache.org/maven2/com/formdev/flatlaf/3.6.2/flatlaf-3.6.2.jar",
+  "sha256": "32c79dee6d51341a3f8603598415841b4461fe535de2c34bcc8ee40e91e72267",
+  "license": "Apache-2.0",
+  "source": "https://github.com/JFormDesigner/FlatLaf/tree/3.6.2"
+}

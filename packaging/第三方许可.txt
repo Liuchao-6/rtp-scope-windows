@@ -1,0 +1,17 @@
+Third-party notices for Chaoge Huatan
+
+G.729 / libjitsi
+Source: https://github.com/jitsi/libjitsi
+Revision: afe642c2d9d00709ca71abbab893ab47b5b0b4ef
+The G.729 implementation is distributed under Apache License 2.0. The original Atlassian and embedded ITU-T / AT&T / France Telecom / NTT / University of Sherbrooke notices are retained in the corresponding source files.
+The complete license is embedded in app/chaoge-huatan.jar at licenses/libjitsi-LICENSE.txt and is available in the application's About view.
+
+FlatLaf
+FlatLaf 3.6.2 by FormDev Software GmbH is distributed under Apache License 2.0.
+Source: https://github.com/JFormDesigner/FlatLaf/tree/3.6.2
+The unmodified library is in app/lib/flatlaf-3.6.2.jar. Its license is retained in that JAR and at licenses/flatlaf-LICENSE.txt in the application JAR, and is available in the About view.
+
+Eclipse Temurin / OpenJDK
+The unmodified Eclipse Temurin 8 Windows x64 runtime is distributed under GPL version 2 with the Classpath Exception and the additional licenses included with the runtime.
+Retain runtime/LICENSE, runtime/ASSEMBLY_EXCEPTION, runtime/THIRD_PARTY_README and all included runtime license files when redistributing this application.
+Corresponding source: https://github.com/adoptium/jdk8u/releases/tag/jdk8u504-b01_adopt

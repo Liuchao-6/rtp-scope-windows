@@ -1,0 +1,7 @@
+{
+  "ecj": {
+    "version": "3.21.0",
+    "url": "https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.21.0/ecj-3.21.0.jar",
+    "sha256": "9082211f48782750093f07822d1ae481e8ece250449578f372334da626ccdead"
+  }
+}
