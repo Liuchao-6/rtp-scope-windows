@@ -1,0 +1,24 @@
+超哥话探 · 离线语音模型
+
+Windows 与 Android 共用模型 ZIP，无需解压。
+升级应用后，进入「录音转文字 → 转写设置 → 导入模型」，选择 Huatan-SenseVoice-int8.zip。
+Windows 在录音工作区点击「导入模型包」。确认模型选为「SenseVoice Small int8 · 中文推荐」后重新转写。
+导入模型一次后保存在本机，识别不需要联网。
+
+SenseVoice Small int8 支持中文、粤语、英文、日文、韩文；界面可选择中文、英文或自动检测。
+中文与粤语识别结果统一转为简体，显示、保存及 TXT / SRT 导出一致。
+自动检测为日文、韩文等其他语言的片段保留原文。
+旧版中文结果在中文模式加载时会转换为简体；想改善识别内容需重新转写。
+原有 Whisper 模型仍可选择；其他语言可使用多语言 Whisper tiny / base ONNX ZIP。
+
+SenseVoice 模型原始 ONNX 约 228 MiB，需为解压、运行及音频缓存预留空间和内存。
+录音与 RTP 通话共用模型，默认左右声道分别识别，也可混合。声道标签可改名，不自动识别人物身份。
+时间戳表示原录音语音片段范围；窄带、噪声、口音、重叠说话仍可能识别错误，请回听确认。
+本包不包含测试录音或真实通话数据。
+
+模型：FunAudioLLM SenseVoice Small；csukuangfj / k2-fsa 转换的 sherpa-onnx int8 版本。
+来源：https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+模型许可：FunASR Model Open Source License Agreement v1.1，完整条款与来源随模型包提供。
+Whisper 可选模型：https://github.com/openai/whisper ，MIT。
+sherpa-onnx：https://github.com/k2-fsa/sherpa-onnx ，Apache-2.0。
+简繁转换使用 OpenCC 1.1.9 词典，Apache-2.0；完整许可随应用提供。

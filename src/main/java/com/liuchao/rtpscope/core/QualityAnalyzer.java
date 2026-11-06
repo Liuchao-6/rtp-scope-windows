@@ -7,15 +7,15 @@ import com.liuchao.rtpscope.core.CaptureEngine.*;
 public final class QualityAnalyzer {
     public static final double DELAY_THRESHOLD_MS=80;
     private static final int ISSUE_LIMIT=2000;
-    public static final class Issue {
+    public static final class Issue implements java.io.Serializable {
         public String kind,description;
         public long timeUs,endUs,firstMissing,lastMissing,count;
         public long startTimestamp,endTimestamp;
         public int clock;
         public double milliseconds;
     }
-    public static final class Report {
-        public long packets,unique,lost,duplicates,reordered,resets,firstUs,lastUs,delayCount;
+    public static final class Report implements java.io.Serializable {
+        public long packets,unique,lost,duplicates,reordered,resets,timestampResets,firstUs,lastUs,delayCount;
         public double jitterMs,maxJitterMs,maxArrivalGapMs;
         public boolean reliableTimestamps,limited;
         public final Set<Integer> payloadTypes=new TreeSet<>();
@@ -55,6 +55,7 @@ public final class QualityAnalyzer {
         TreeMap<Long,Entry> sequence=new TreeMap<>();
         long high=0;Entry previousAudio=null;double jitter=0;
         for(Iterator<Entry> iterator=entries(streams);iterator.hasNext();) {
+            if(Thread.currentThread().isInterrupted())throw new java.util.concurrent.CancellationException("媒体分析已取消");
             Entry entry=iterator.next();
             if(report.packets==0){high=entry.packet.sequence;report.firstUs=entry.packet.timeUs;}report.lastUs=entry.packet.timeUs;
             RtpPacket p=entry.packet;RtpStream s=entry.stream;report.packets++;
@@ -75,7 +76,11 @@ public final class QualityAnalyzer {
                 double arrival=(p.timeUs-previousAudio.packet.timeUs)/1000.0;
                 double media=(int)(p.timestamp-previousAudio.packet.timestamp)*1000.0/s.clock;
                 report.maxArrivalGapMs=Math.max(report.maxArrivalGapMs,arrival);
-                if(reliable && media<=arrival+5000) {
+                if(extended>previousAudio.packet.extendedSequence&&RtpTimeline.discontinuity((int)(p.timestamp-previousAudio.packet.timestamp),p.timeUs-previousAudio.packet.timeUs,s.clock)){
+                    report.timestampResets++;jitter=0;
+                    Issue issue=new Issue();issue.kind="TIMESTAMP";issue.timeUs=p.timeUs;issue.endUs=p.timeUs;
+                    issue.description="RTP 时间戳基准跳变，播放按抓包时间衔接；未将跳变计为卡顿";add(report,issue);
+                }else if(reliable && media<=arrival+5000) {
                     double deviation=arrival-media;
                     jitter+=(Math.abs(deviation)-jitter)/16.0;
                     report.jitterMs=jitter;report.maxJitterMs=Math.max(report.maxJitterMs,jitter);

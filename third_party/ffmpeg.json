@@ -1,0 +1,7 @@
+{
+  "version": "7.1-essentials_build",
+  "source": "https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz",
+  "build_source": "https://www.gyan.dev/ffmpeg/builds/",
+  "license": "GPL-3.0-or-later",
+  "sha256": "2ce797a0f88d7f067180338fb227f7b1928ea727bd9a4d7a1d022f7c52af71a3"
+}

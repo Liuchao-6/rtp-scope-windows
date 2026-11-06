@@ -11,10 +11,12 @@ public final class AudioRenderer {
     public static final int RATE=8000;
     public static final long MAX_SAMPLES=RATE*60L*60;
     public static int sampleCount(RtpStream stream,byte[] payload) {
+        if(CodecSupport.amr(stream)){try{return AmrPayload.frames(payload,stream.codec.equals("AMR-WB"),AmrPayload.aligned(stream.fmtp)).size()*stream.clock/50;}catch(IOException e){return 0;}}
         if(stream.codec.equals("OPUS"))return Math.max(0,OpusPacketInfo.getNumSamples(payload,0,payload.length,48000));
         return sampleCount(stream,payload.length);
     }
     public static int sampleCount(RtpStream stream,RtpPacket packet){
+        if(CodecSupport.amr(stream)){try{return sampleCount(stream,packet.payload());}catch(IOException e){throw new UncheckedIOException(e);}}
         if(!stream.codec.equals("OPUS"))return sampleCount(stream,packet.payloadSize());
         try{return Math.max(0,OpusPacketInfo.getNumSamples(packet.prefix(2),0,packet.payloadSize(),48000));}catch(IOException e){throw new UncheckedIOException(e);}
     }
@@ -36,7 +38,7 @@ public final class AudioRenderer {
     }
     public static void render(List<RtpStream> streams,File target) throws IOException {
         if (streams.isEmpty() || streams.size()>8) throw new IOException("请选择 1 至 8 条可解码的媒体流");
-        int outputRate=RATE;for(RtpStream s:streams)if(s.codec.equals("OPUS"))outputRate=48000;
+        int outputRate=RATE;for(RtpStream s:streams){if(s.codec.equals("G722")||s.codec.equals("AMR-WB"))outputRate=Math.max(outputRate,16000);if(s.codec.equals("OPUS"))outputRate=48000;}
         long origin=Long.MAX_VALUE;
         for (RtpStream s:streams) {
             if (!s.playable()) throw new IOException("不支持播放 "+s.codec+"，或该流为加密媒体");
@@ -44,33 +46,25 @@ public final class AudioRenderer {
         }
         if (origin==Long.MAX_VALUE) throw new IOException("没有可播放的 RTP 数据");
         long total=0;
-        List<Long> bases=new ArrayList<>(), offsets=new ArrayList<>();
+        List<RtpTimeline> timelines=new ArrayList<>();List<Long> offsets=new ArrayList<>();
         for (RtpStream s:streams) {
-            long anchor=s.packets.get(0).timestamp, min=0;
-            for (RtpPacket p:s.packets) min=Math.min(min,(int)(p.timestamp-anchor));
-            long offset=Math.round((s.firstUs()-origin)*outputRate/1000000.0);
-            bases.add(anchor+min); offsets.add(offset);
-            for (RtpPacket p:s.packets) {
-                long position=offset+Math.round((int)(p.timestamp-(anchor+min))*(double)outputRate/s.clock);
-                long end=position+Math.round(sampleCount(s,p)*(double)outputRate/s.clock);
-                if (position<0 || end>MAX_SAMPLES*outputRate/RATE) throw new IOException("音频时间轴超过 60 分钟或时间戳异常");
-                total=Math.max(total,end);
-            }
+            RtpTimeline timeline=RtpTimeline.of(s);timelines.add(timeline);
+            long offset=Math.round((s.firstUs()-origin)*outputRate/1000000.0);offsets.add(offset);
+            long end=offset+Math.round(timeline.samples*(double)outputRate/s.clock);
+            if(offset<0||end>MAX_SAMPLES*outputRate/RATE)throw new IOException("音频时间轴超过 60 分钟");
+            total=Math.max(total,end);
         }
         try (RandomAccessFile out=new RandomAccessFile(target,"rw")) {
             out.setLength(0); header(out,total,outputRate); out.setLength(44+total*2);
             for (int index=0;index<streams.size();index++) {
                 RtpStream stream=streams.get(index);
-                MediaDecoder decoder=new MediaDecoder(stream,outputRate);
-                Set<Long> seen=new HashSet<>(); long high=stream.packets.get(0).sequence;
-                List<RtpPacket> ordered=new ArrayList<>(stream.packets);
-                final long base=bases.get(index);
-                ordered.sort((a,b)->Integer.compare((int)(a.timestamp-base),(int)(b.timestamp-base)));
-                long previousEnd=-1;
-                for (RtpPacket p:ordered) {
-                    long sequence=high+(short)(p.sequence-(int)high); high=Math.max(high,sequence);
-                    if (!seen.add(sequence)) continue;
-                    long position=offsets.get(index)+Math.round((int)(p.timestamp-bases.get(index))*(double)outputRate/stream.clock);
+                try(MediaDecoder decoder=new MediaDecoder(stream,outputRate)){
+                Set<String> seen=new HashSet<>();long previousEnd=-1;
+                for (RtpTimeline.Frame frame:timelines.get(index).frames) {
+                    if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("音频任务已取消");
+                    if(!seen.add(frame.identity()))continue;
+                    RtpPacket p=stream.packets.get(frame.index);
+                    long position=offsets.get(index)+Math.round(frame.ticks*(double)outputRate/stream.clock);
                     if(previousEnd>=0&&position>previousEnd)decoder.gap(position-previousEnd);
                     byte[] payload=p.payload();
                     short[] decoded=decoder.decode(payload);
@@ -85,7 +79,7 @@ public final class AudioRenderer {
                     }
                     out.seek(44+position*2); out.write(pcm);
                     previousEnd=position+count;
-                }
+                }}
             }
         } catch (IOException|RuntimeException e) {
             if (!target.delete()) target.deleteOnExit();

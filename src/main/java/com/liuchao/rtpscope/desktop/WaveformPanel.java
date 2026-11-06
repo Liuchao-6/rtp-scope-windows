@@ -84,7 +84,7 @@ public final class WaveformPanel extends JPanel {
             g.setColor(trackColor(track));g.fillRoundRect(left,top+Ui.u(8),Ui.u(4),Ui.u(12),Ui.u(3),Ui.u(3));g.setFont(Ui.font(12));g.drawString((track+1)+"  "+source.label,left+Ui.u(11),top+Ui.u(18));
             if(layout.hidden[track]>0){g.setColor(Ui.MUTED);String more="另有 "+layout.hidden[track]+" 次，见按键列表";g.drawString(more,Math.max(left,getWidth()-g.getFontMetrics().stringWidth(more)-left),top+Ui.u(18));}
             for(WaveformData.Marker m:source.waveform.markers)if(!m.kind.equals("DTMF")) {
-                if(source.offsetMs+m.endMs<viewport.startMs()||source.offsetMs+m.startMs>viewport.endMs())continue;int start=x(Math.max(viewport.startMs(),source.offsetMs+m.startMs)),end=x(Math.min(viewport.endMs(),source.offsetMs+m.endMs));g.setColor(m.kind.equals("LOSS")?new Color(0x32d13438,true):new Color(0x88bc8100,true));g.fillRect(start,plotTop,Math.max(Ui.u(2),end-start),bottom-plotTop);
+                if(source.offsetMs+m.endMs<viewport.startMs()||source.offsetMs+m.startMs>viewport.endMs())continue;int start=x(Math.max(viewport.startMs(),source.offsetMs+m.startMs)),end=x(Math.min(viewport.endMs(),source.offsetMs+m.endMs));g.setColor(m.kind.equals("LOSS")?new Color(0x32d13438,true):m.kind.equals("TIMESTAMP")?new Color(0x888250b8,true):new Color(0x88bc8100,true));g.fillRect(start,plotTop,Math.max(Ui.u(2),end-start),bottom-plotTop);
             }
             g.setColor(Ui.LINE);g.drawLine(left,center,left+width,center);g.setColor(trackColor(track));
             int bins=source.waveform.minimum.length;double ownDuration=Math.max(1,source.waveform.durationMs());

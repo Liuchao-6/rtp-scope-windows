@@ -111,6 +111,11 @@ public final class CoreTest {
         for(int number=0;number<16;number++)check(parsedKeys.events.get(number).key.equals(labels[number]),"DTMF label "+number);
         matrix.encrypted=true;check(DtmfParser.parse(matrix).events.isEmpty(),"encrypted event not parsed");
         matrix.encrypted=false;matrix.codec="PT 101";check(DtmfParser.parse(matrix).events.isEmpty(),"PT101 alone does not prove telephone-event");
+        checks+=AdvancedFeatureTest.run(fixtures,output);
+        checks+=SpeechReportTest.run(output);
+        checks+=ChannelAudioTest.run(fixtures,output);
+        checks+=FeatureRegressionTest.run(output);
+        checks+=RtpRecoveryTest.run(output);
         checks+=CaptureWorkspaceTest.run();
         checks+=CallSearchTest.run(fixtures);
         checks+=SecureTransportTest.run(fixtures,output);

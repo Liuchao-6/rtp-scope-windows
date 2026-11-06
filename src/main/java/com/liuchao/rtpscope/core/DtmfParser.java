@@ -6,7 +6,7 @@ import com.liuchao.rtpscope.core.CaptureEngine.*;
 /** RFC 4733 telephone-event payloads; retransmitted end packets describe one key press. */
 public final class DtmfParser {
     public enum Type { RTP_EVENT, SIP_INFO, IN_BAND }
-    public static final class Event {
+    public static final class Event implements java.io.Serializable {
         public String src,dst,callId,key;
         public Type type=Type.RTP_EVENT;
         public String audioSrc="",audioDst="";
@@ -63,9 +63,10 @@ public final class DtmfParser {
         return result;
     }
     public static boolean matches(Event e,RtpStream s){return e.type==Type.SIP_INFO?e.audioSrc.equals(s.src)&&e.audioDst.equals(s.dst)&&Objects.equals(e.callId,s.callId):Objects.equals(e.src,s.src)&&Objects.equals(e.dst,s.dst)&&e.ssrc==s.ssrc;}
-    public static long mediaBase(RtpStream s){long anchor=s.packets.get(0).timestamp,min=0;for(RtpPacket p:s.packets)min=Math.min(min,(int)(p.timestamp-anchor));return anchor+min;}
-    public static double audioStartMs(Event e,RtpStream s,long origin){return audioStartMs(e,s,origin,mediaBase(s));}
-    public static double audioStartMs(Event e,RtpStream s,long origin,long base){return e.type!=Type.SIP_INFO&&e.clock==s.clock?(s.firstUs()-origin)/1000.0+(int)(e.timestamp-base)*1000.0/s.clock:(e.firstSeenUs-origin)/1000.0;}
+    public static long mediaBase(RtpStream s){return RtpTimeline.of(s).firstTimestamp();}
+    public static double audioStartMs(Event e,RtpStream s,long origin){return audioStartMs(e,s,origin,RtpTimeline.of(s));}
+    public static double audioStartMs(Event e,RtpStream s,long origin,long base){return audioStartMs(e,s,origin);}
+    public static double audioStartMs(Event e,RtpStream s,long origin,RtpTimeline timeline){return e.type==Type.RTP_EVENT&&e.clock==s.clock?(s.firstUs()-origin)/1000.0+timeline.milliseconds(e.timestamp,e.firstSeenUs):(e.firstSeenUs-origin)/1000.0;}
     public static String key(int number) {
         if(number<=9)return String.valueOf(number);
         if(number==10)return "*";if(number==11)return "#";

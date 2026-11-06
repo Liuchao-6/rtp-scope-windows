@@ -10,7 +10,7 @@ import com.formdev.flatlaf.FlatLightLaf;
 import com.liuchao.rtpscope.core.SipSyntax;
 
 final class Ui {
-    static final Color BG=new Color(0xf5f6f8),PANEL=Color.WHITE,RAISED=new Color(0xf0f3f7),INK=new Color(0x202830),MUTED=new Color(0x66717d),ACCENT=new Color(0x0067c0),LINE=new Color(0xe0e5ec),SELECTED=new Color(0xe7f1fb),POSITIVE=new Color(0x087e60);
+    static final Color BG=new Color(0xf5f8fc),PANEL=Color.WHITE,RAISED=new Color(0xf0f3f7),INK=new Color(0x18324e),MUTED=new Color(0x71849b),ACCENT=new Color(0x0067c0),LINE=new Color(0xdce5f0),SELECTED=new Color(0xe7f1fb),POSITIVE=new Color(0x087e60);
     static final double SCALE=GraphicsEnvironment.isHeadless()?1:Math.max(1,Toolkit.getDefaultToolkit().getScreenResolution()/96.0);
     static int u(int value){return (int)Math.round(value*SCALE);}
     private static final String FONT_FAMILY=fontFamily();
@@ -27,9 +27,10 @@ final class Ui {
         UIManager.put("Button.arc",u(8));UIManager.put("Component.arc",u(8));UIManager.put("TextComponent.arc",u(8));UIManager.put("Component.focusWidth",1);UIManager.put("Button.minimumHeight",u(34));UIManager.put("TabbedPane.tabHeight",u(38));UIManager.put("SplitPane.dividerSize",u(10));UIManager.put("ScrollBar.width",u(12));
         System.setProperty("awt.useSystemAAFontSettings","on");System.setProperty("swing.aatext","true");
     }
+    static JPanel card(LayoutManager layout){JPanel panel=new JPanel(layout);panel.setBackground(PANEL);panel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(LINE),BorderFactory.createEmptyBorder(u(12),u(12),u(12),u(12))));return panel;}
     static JButton button(String label,boolean primary) {
         JButton b=new JButton(label);b.setFont(font(13));b.setForeground(primary?Color.WHITE:INK);b.setBackground(primary?ACCENT:PANEL);b.setMargin(new Insets(u(7),u(13),u(7),u(13)));
-        b.putClientProperty("JButton.buttonType",primary?"roundRect":"roundRect");return b;
+        b.putClientProperty("JButton.buttonType",null);return b;
     }
     static JLabel label(String value,int size,Color color){JLabel l=new JLabel(value);l.putClientProperty("html.disable",Boolean.TRUE);l.setFont(font(size));l.setForeground(color);return l;}
     static JTextArea note(String value){JTextArea a=new JTextArea(value);a.setEditable(false);a.setLineWrap(true);a.setWrapStyleWord(true);a.setFont(font(12));a.setForeground(MUTED);a.setBackground(PANEL);return a;}

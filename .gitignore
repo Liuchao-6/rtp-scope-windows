@@ -4,3 +4,5 @@ dist/XingtingRTP-*-win-x64/
 __pycache__/
 *.log
 dist/ChaogeHuatan-*-win-x64/
+# Release archives and speech models are distributed through GitHub Releases.
+/dist/

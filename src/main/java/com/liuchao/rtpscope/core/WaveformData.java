@@ -40,11 +40,12 @@ public final class WaveformData {
         long origin=Long.MAX_VALUE;for(RtpStream s:streams)origin=Math.min(origin,s.firstUs());
         Set<QualityAnalyzer.Report> reports=Collections.newSetFromMap(new IdentityHashMap<QualityAnalyzer.Report,Boolean>());
         for(RtpStream stream:streams) {
+            RtpTimeline timeline=RtpTimeline.of(stream);
             if(stream.quality!=null&&reports.add(stream.quality))for(QualityAnalyzer.Issue issue:stream.quality.issues) {
                 Marker m=new Marker();m.kind=issue.kind;m.label=issue.description;
                 if(issue.clock==stream.clock) {
-                    m.startMs=(stream.firstUs()-origin)/1000.0+(int)(issue.startTimestamp-stream.packets.get(0).timestamp)*1000.0/stream.clock;
-                    m.endMs=(stream.firstUs()-origin)/1000.0+(int)(issue.endTimestamp-stream.packets.get(0).timestamp)*1000.0/stream.clock;
+                    m.startMs=(stream.firstUs()-origin)/1000.0+timeline.milliseconds(issue.startTimestamp,issue.timeUs);
+                    m.endMs=(stream.firstUs()-origin)/1000.0+timeline.milliseconds(issue.endTimestamp,issue.endUs);
                 } else {m.startMs=(issue.timeUs-origin)/1000.0;m.endMs=(issue.endUs-origin)/1000.0;}
                 data.add(m);
             }
@@ -54,7 +55,7 @@ public final class WaveformData {
     public void addEvents(List<DtmfParser.Event> events,List<RtpStream> streams) {
         if(streams.isEmpty())return;
         long origin=Long.MAX_VALUE;for(RtpStream s:streams)origin=Math.min(origin,s.firstUs());
-        Map<RtpStream,Long> bases=new IdentityHashMap<>();for(RtpStream s:streams)bases.put(s,DtmfParser.mediaBase(s));
+        Map<RtpStream,RtpTimeline> bases=new IdentityHashMap<>();for(RtpStream s:streams)bases.put(s,RtpTimeline.of(s));
         for(DtmfParser.Event event:events)for(RtpStream s:streams) {
             if(!DtmfParser.matches(event,s))continue;
             Marker m=new Marker();m.kind="DTMF";m.label=event.key;m.event=event;

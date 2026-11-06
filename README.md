@@ -1,80 +1,50 @@
 # 超哥话探 · Windows
 
-**SIP · RTP 通话分析**
+**SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-在一个窗口中查看 SIP 交互、回放通话语音、识别按键和定位媒体问题。支持本地离线分析，适用于 **Windows 10 / Windows 11 64 位**。
-
-[下载便携版](dist/ChaogeHuatan-0.7.1-win-x64.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈问题](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.3/ChaogeHuatan-0.8.3-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.3/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
 ## 主要功能
 
-- **抓包导入**：支持 PCAP / PCAPNG，多选或拖放导入，各文件独立分析、切换查看；支持恢复中断抓包。
-- **查找通话**：按主叫、被叫、时间段、信令或媒体 IP 组合筛选；列表显示号码和开始时间，选中后查看完整通话。
-- **加密与 WebSocket 信令**：支持 SIP over WS、TLS / WSS；PCAP、RSA 私钥和 NSS TLS key log 分别导入，追加密钥后自动重新分析。
-- **SIP 分析**：按通话展示流序图，点击消息查看源 / 目的 IP、端口、彩色报文和 SDP；支持搜索与复制原文。
-- **语音回放**：支持 G.711（PCMA / PCMU）、G.729 / G.729A、Opus，可播放双向通话并导出 WAV；Opus 保留 48 kHz 输出，立体声合并为单路方向音频。
-- **按键识别**：支持 RFC 2833 / 4733、SIP INFO、In-band DTMF，显示按键类型、方向和持续时间。
-- **波形与质量**：双向波形上下分路、颜色区分，支持缩放和点击定位；标注缺包、按键和到达延迟。播放器可收起。
+- **信令与按键**：PCAP / PCAPNG、多文件独立切换，按号码 / 时间 / IP 查找通话；SIP 流序图、彩色报文、RFC 2833 / 4733、SIP INFO 和 In-band DTMF。
+- **通话体检**：开始、接通、结束时间、时长、结束发起侧、Reason / Q.850，以及信令与媒体问题的证据。抓包缺少结束时，完整时长与挂断方显示未知。
+- **通话资料**：按需导出原始关联 PCAPNG、各方向 WAV 和 HTML 报告；报告可分别选择遮蔽号码、IP；单项或单方向失败后继续导出其余内容，并列出结果。
+- **抓包对照与关联**：对照两个抓包的同一 SIP 事务，手动校准时间；查看 Replaces / Join / Refer-To 证据与候选通话段，手动确认、移除或定位。
+- **大文件**：单文件至 1 GiB，分阶段进度、取消导入和解析索引复用；中断抓包分析已写入的内容。
+- **双向试听**：分路波形、缩放、收起、缺包与延迟标记；独听、静音、左右声道、0.5～2 倍速和 A/B 循环。RTP 时间戳异常跳变时按抓包时间分段衔接，保留正常时序和实际静音。
+- **媒体编码**：G.711、G.729 / G.729A、Opus、G.722，以及常用 AMR-NB / AMR-WB RTP 封装。
+- **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
 
-## 界面预览
+## 使用
 
-SIP 流序图与彩色报文，点击消息查看详情：
+1. 完整解压便携 ZIP，双击 `ChaogeHuatan.exe`，无需另装 Java。
+2. 导入或拖入抓包，先在左侧找通话，再查看流序图、媒体或「通话体检」。可以先体验合成演示。
+3. 双击媒体流显示波形；「试听设置」控制方向、声道、倍速及循环。「导出 WAV」生成一个文件，每路方向独立声道，按波形从上到下排列并按抓包时间对齐；试听静音和倍速不改变导出内容。
+4. 转写前下载配套模型 ZIP，在「录音转文字」中「导入模型包」，无需解压。再导入录音，或从 RTP 页「转写当前通话」。
 
-![SIP 流序图与彩色报文详情](docs/images/sip-flow.png)
+录音支持 WAV、MP3、M4A / AAC、FLAC，最长 60 分钟。配套推荐 SenseVoice Small int8，中文结果统一转为简体，仍可切换 Whisper；也可导入同一套 encoder、decoder 与 tokens 的 Whisper base ONNX ZIP。时间戳表示原录音中的语音片段范围，不保证逐字对齐，识别内容请回听确认。
 
-双向媒体波形、按键及质量标记：
+## 界面
 
-![双向 RTP 波形、按键和质量标记](docs/images/rtp-waveform.png)
+![通话体检](docs/images/call-health.png)
 
-分别导入 PCAP 与 TLS key log 后，还原 WSS 信令并查看双向 Opus 波形：
+![录音转写工作区，使用合成演示数据](docs/images/recording-workspace.png)
 
-![WSS 信令与双向 Opus 波形](docs/images/wss-opus.png)
+![SIP 流序与彩色报文](docs/images/sip-flow.png)
 
-RSA 私钥独立导入后还原 WSS 信令：
+## 解密与使用范围
 
-![RSA 私钥导入与 WSS 信令](docs/images/rsa-private-key.png)
+- PCAP、RSA 私钥和 NSS TLS key log 分别导入。RSA 支持未加密 PKCS#1 / PKCS#8 `.key / .pem / .der`，适用于 TLS 1.0～1.2 RSA 密钥交换；ECDHE / TLS 1.3 需会话 key log。两类密钥仅保留在当前会话内。
+- 支持 SIP over WS / WSS、掩码、分片与 permessage-deflate；不解密 SRTP，不支持加密私钥、TLS 再协商或厂商自定义 JSON 信令。
+- G.722 支持常见 64 kbit/s；AMR 支持单声道 octet-aligned / bandwidth-efficient，不支持 CRC、robust sorting、交织封装。
+- 播放器 WAV 导出支持 1～64 声道、最长 60 分钟、RIFF 4 GiB 上限；超过双声道使用扩展 PCM WAV。普通播放器可能合并播放，支持多声道的音频工具可逐路查看。
+- TCP / TLS 单通话导出会包含完整关联连接，同连接可能存在其他通话。报告遮蔽不改变原始 PCAP 和音频。
+- 对照未见、序号缺口与到达延迟只反映当前抓包所见；候选关联不等于已确认同一通话，声道不等于人物身份。
+- 未加载解密密钥时复用解析索引；文件、解析版本或密钥变化时重新分析。索引存于用户目录 `.chaoge-huatan/index`，最多约 2 GiB；媒体临时缓存另需预留空间。
+- 最多 2000 万包、3 万条 SIP 消息，TCP 重组上限 24 MiB。离线分析无需 Wireshark；「本机抓包」需另装 tshark / Npcap。
 
-以上均使用合成演示数据，不包含真实通话信息。
+## 构建
 
-## 下载与使用
+Windows、Python 3.11、项目本地 Java 8 工具链；依赖来源和校验值见 `third_party`。运行 `python tools/build.py`；只跑测试使用 `--test-only`。模型单独打包，不嵌入应用。便携包不包含开发 Markdown 文档。
 
-1. 下载 [便携 ZIP](dist/ChaogeHuatan-0.7.1-win-x64.zip)，**完整解压**后双击 `ChaogeHuatan.exe`。自带运行环境，无需另装 Java。
-2. 点击「体验演示」，或通过「导入抓包」 / 拖放打开文件；可一次导入多个文件，再从顶部下拉框切换。
-3. 在左侧「找通话」输入号码、IP 或 Call-ID，或点击「筛选」组合主被叫、IP 和时间；选中结果后查看完整流序图，点击消息查看报文。
-4. 选择媒体流播放或查看波形。用「− / ＋」或 Ctrl＋滚轮缩放，点击波形或按键标签定位，按需导出 WAV。
-
-如需本机抓包，请先安装 Wireshark / tshark 和 Npcap，再使用「本机抓包」选择网卡。离线分析不需要这些组件。
-
-筛选时间使用本机时区，可填 `14:30:00` 或 `2026-11-05 14:30:00`，可加三位毫秒；匹配在时间段内出现的通话。各条件同时生效，点左侧「全部」清除通话筛选。顶部搜索用于筛选报文或媒体。
-
-## 解密密钥独立导入
-
-点击「解密密钥」选择类型，PCAP 与密钥可按任意顺序分别导入：
-
-- **RSA 私钥**：适配 Wireshark「RSA keys list」使用的 `.key / .pem / .der`，支持未加密的 PKCS#1 / PKCS#8。可解密 TLS 1.0～1.2 的 RSA 密钥交换，支持 AES-GCM、AES-CBC 和 3DES-CBC；需要 ClientHello、ServerHello 和 ClientKeyExchange，扩展主密钥还需要完整初始握手。
-- **TLS key log**：导入 NSS 会话密钥日志；ECDHE / DHE、TLS 1.3 等会话需要这种文件。支持 TLS 1.2 的 AES-GCM、ChaCha20-Poly1305、常见 AES-CBC，以及 TLS 1.3 的 AES-GCM、ChaCha20-Poly1305、AES-CCM。
-
-追加或清除密钥后自动重新分析当前抓包，保留通话筛选；切换文件会继续使用已加载的密钥。两类密钥可同时加载，只保存在当前会话内；退出后需重新导入。
-
-RSA 证书、公钥不能代替私钥；需要密码的加密私钥暂不支持。单独抓到的复用会话缺少初始密钥交换时，需使用对应 key log。RSA 私钥不能用于解密 ECDHE 或 TLS 1.3；TLS 再协商和 0-RTT 暂未支持。
-
-WS / WSS 支持 SIP 消息、掩码、分片及 permessage-deflate；厂商自定义 JSON 信令需另行适配。
-
-## 使用范围
-
-- 语音回放需要完整、未加密且编码受支持的 RTP；暂不解码 AMR、G.722，不解密 SRTP。TLS / WSS 信令解密不代表 SRTP 媒体也已解密。
-- 缺包与延迟反映抓包位置观察到的情况，不能直接等同于网络实际丢包或终端听感；In-band 按键可能漏检或误判。
-- 单文件支持至 **1 GiB（1024 MiB）**，RTP 载荷使用临时磁盘缓存；请为系统临时目录预留至少 2 GB 空间。切换文件或正常退出时清理缓存。
-- 最多 2000 万包、3 万条 SIP 消息，TCP 重组上限 24 MiB；单次音频最长 60 分钟。文件列表仅在当前应用会话内保留。
-- 当前提供 x64 便携包，需保留 EXE 同目录下的 `app` 和 `runtime` 文件夹。
-
-<details>
-<summary>源码构建</summary>
-
-使用 Windows 和 Python 3.11。按 `third_party/toolchain.json` 与 `third_party/runtime.json` 准备 ECJ 编译器及 Temurin 运行环境压缩包，放入 `.tools`，运行 `python tools/build.py`。构建时会校验依赖，生成便携包、源码包和 SHA-256 文件。
-
-仅运行测试：`python tools/build.py --test-only`。
-
-</details>
-
-第三方组件来源与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+[第三方许可](THIRD_PARTY_NOTICES.md) · [验证范围](VALIDATION.md)

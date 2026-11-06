@@ -74,3 +74,13 @@ PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS 
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+
+G.722: Steve Underwood / CMU decoder, public-domain dedication and attribution in app/chaoge-huatan.jar at licenses/g722-LICENSE.txt.
+
+sherpa-onnx 2.0.1: Apache-2.0, https://github.com/k2-fsa/sherpa-onnx ; full license: licenses/sherpa-onnx-LICENSE.txt in the application JAR. Whisper model: MIT, https://github.com/openai/whisper ; optional model package retains licenses/whisper-MIT.txt.
+
+FFmpeg 7.1 Gyan essentials: GPL-3.0-or-later. Full GPLv3 is embedded at licenses/ffmpeg-GPL-3.0.txt in the application JAR. Corresponding source: https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz ; build information and sources: https://www.gyan.dev/ffmpeg/builds/ . The unmodified executable is app/lib/ffmpeg.exe and runs as a separate process.
+
+SenseVoice Small: FunAudioLLM; int8 conversion by csukuangfj / k2-fsa. Separate model package includes the FunASR Model Open Source License Agreement v1.1 and original license reference.
+OpenCC 1.1.9 dictionaries: Apache-2.0, https://github.com/BYVoid/OpenCC/tree/ver.1.1.9 ; full license in licenses/opencc-LICENSE.txt.

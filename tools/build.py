@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,json,os,shutil,struct,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.7.1'
+VERSION='0.8.3'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'
@@ -50,7 +50,12 @@ def main():
     assert hashlib.sha256(laf.read_bytes()).hexdigest()==laf_info['sha256'],'FlatLaf SHA-256 mismatch'
     crypto=ROOT/'third_party/bcprov-jdk15to18-1.78.1.jar';crypto_info=json.loads((ROOT/'third_party/bouncycastle.json').read_text(encoding='utf-8'))
     assert hashlib.sha256(crypto.read_bytes()).hexdigest()==crypto_info['sha256'],'TLS crypto SHA-256 mismatch'
-    libraries=os.pathsep.join([str(laf),str(crypto)])
+    speech=ROOT/'third_party/sherpa-onnx-jvm-2.0.1.jar';speech_native=ROOT/'third_party/sherpa-onnx-native-lib-win-x64-2.0.1.jar'
+    speech_info=json.loads((ROOT/'third_party/sherpa-onnx.json').read_text(encoding='utf-8'))
+    for artifact in [speech,speech_native]:assert hashlib.sha256(artifact.read_bytes()).hexdigest()==speech_info['artifacts'][artifact.name],'Speech dependency SHA-256 mismatch'
+    ffmpeg=ROOT/'third_party/ffmpeg/ffmpeg.exe';ffmpeg_info=json.loads((ROOT/'third_party/ffmpeg.json').read_text(encoding='utf-8'))
+    assert hashlib.sha256(ffmpeg.read_bytes()).hexdigest()==ffmpeg_info['sha256'],'FFmpeg SHA-256 mismatch'
+    libraries=os.pathsep.join([str(laf),str(crypto),str(speech),str(speech_native)])
     classes=BUILD/'classes';classes.mkdir(exist_ok=True)
     sources=sorted((ROOT/'src/main/java').rglob('*.java'))
     run([JAVA,'-jar',compiler,'-1.8','-encoding','UTF-8','-nowarn','-classpath',libraries,'-d',classes]+sources)
@@ -59,8 +64,9 @@ def main():
     if '--skip-tests' not in sys.argv:
         tests=BUILD/'test-classes';tests.mkdir(exist_ok=True)
         run([JAVA,'-jar',compiler,'-1.8','-encoding','UTF-8','-nowarn','-classpath',os.pathsep.join([str(classes),libraries]),'-d',tests]+sorted((ROOT/'tests').glob('*.java')))
-        cp=os.pathsep.join([str(classes.relative_to(ROOT)),str(tests.relative_to(ROOT)),str(laf.relative_to(ROOT)),str(crypto.relative_to(ROOT))])
+        cp=os.pathsep.join([str(classes.relative_to(ROOT)),str(tests.relative_to(ROOT)),str(laf.relative_to(ROOT)),str(crypto.relative_to(ROOT)),str(speech.relative_to(ROOT)),str(speech_native.relative_to(ROOT))])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'CoreTest',ROOT/'tests/fixtures',BUILD])
+        run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.NativeFeatureTest',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.DesktopTest',ROOT/'tests/fixtures',BUILD])
         run([JAVA,'-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.AudioProbe',BUILD/'demo-desktop.wav',BUILD/'audio-probe.txt'])
         run([JAVA,'-Xmx160m','-cp',cp,'LargeCaptureTest',ROOT/'tests/fixtures',BUILD])
@@ -74,12 +80,15 @@ def main():
     (product/'app').mkdir(parents=True,exist_ok=True)
     jar=product/'app/chaoge-huatan.jar'
     with zipfile.ZipFile(jar,'w',zipfile.ZIP_DEFLATED) as z:
-        z.writestr('META-INF/MANIFEST.MF','Manifest-Version: 1.0\r\nMain-Class: com.liuchao.rtpscope.desktop.DesktopApp\r\nClass-Path: lib/flatlaf-3.6.2.jar \r\n lib/bcprov-jdk15to18-1.78.1.jar\r\n\r\n')
+        z.writestr('META-INF/MANIFEST.MF','Manifest-Version: 1.0\r\nMain-Class: com.liuchao.rtpscope.desktop.DesktopApp\r\nClass-Path: lib/flatlaf-3.6.2.jar \r\n lib/bcprov-jdk15to18-1.78.1.jar \r\n lib/sherpa-onnx-jvm-2.0.1.jar \r\n lib/sherpa-onnx-native-lib-win-x64-2.0.1.jar\r\n\r\n')
         for p in sorted(classes.rglob('*')):
             if p.is_file():z.write(p,p.relative_to(classes).as_posix())
     icon(BUILD/'app.ico')
     (product/'app/lib').mkdir(exist_ok=True);shutil.copy2(laf,product/'app/lib'/laf.name)
     shutil.copy2(crypto,product/'app/lib'/crypto.name)
+    shutil.copy2(speech,product/'app/lib'/speech.name)
+    shutil.copy2(speech_native,product/'app/lib'/speech_native.name)
+    shutil.copy2(ffmpeg,product/'app/lib/ffmpeg.exe')
     run([CSC,'/nologo','/target:winexe','/platform:x64','/optimize+','/utf8output','/codepage:65001','/reference:System.Windows.Forms.dll','/win32manifest:launcher/app.manifest','/win32icon:build/app.ico','/out:'+str((product/'ChaogeHuatan.exe').relative_to(ROOT)),ROOT/'launcher/Launcher.cs'])
     shutil.copytree(RUNTIME,product/'runtime',dirs_exist_ok=True)
     for name in ['使用说明.txt','第三方许可.txt']:shutil.copy2(ROOT/'packaging'/name,product/name)

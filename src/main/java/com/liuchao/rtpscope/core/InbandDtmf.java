@@ -27,16 +27,20 @@ public final class InbandDtmf {
     }
     public static List<DtmfParser.Event> detect(List<RtpStream> streams,Analysis analysis,long[] budget){
         if(budget[0]<=0){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");return new ArrayList<>();}
-        RtpStream first=streams.get(0);long base=DtmfParser.mediaBase(first);for(RtpStream s:streams)if((int)(DtmfParser.mediaBase(s)-base)<0)base=DtmfParser.mediaBase(s);
-        final long origin=base;List<RtpPacket> ordered=new ArrayList<>();Map<RtpPacket,RtpStream> owners=new IdentityHashMap<>();for(RtpStream s:streams){long samples=0;for(RtpPacket p:s.packets){int count=(int)(AudioRenderer.sampleCount(s,p)*8000L/s.clock);if((int)(p.timestamp-origin)*8000L/s.clock>AudioRenderer.MAX_SAMPLES||samples+count>budget[0]){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}samples+=count;ordered.add(p);owners.put(p,s);}}ordered.sort(Comparator.comparingLong(p->(int)(p.timestamp-origin)));
-        long originUs=Long.MAX_VALUE;for(RtpStream s:streams)originUs=Math.min(originUs,s.firstUs()+(int)(base-DtmfParser.mediaBase(s))*1000000L/s.clock);
+        RtpStream first=streams.get(0);long base=first.packets.get(0).timestamp,originUs=Long.MAX_VALUE;
+        for(RtpStream s:streams)originUs=Math.min(originUs,s.firstUs());
+        class AudioPacket {RtpStream stream;RtpTimeline.Frame frame;long position;AudioPacket(RtpStream s,RtpTimeline.Frame f,long at){stream=s;frame=f;position=at;}}
+        List<AudioPacket> ordered=new ArrayList<>();for(RtpStream s:streams){long samples=0;RtpTimeline timeline=RtpTimeline.of(s);for(RtpTimeline.Frame frame:timeline.frames){RtpPacket p=s.packets.get(frame.index);int count=(int)(AudioRenderer.sampleCount(s,p)*8000L/s.clock);long position=Math.round((s.firstUs()-originUs)*.008)+frame.ticks*8000L/s.clock;if(position>AudioRenderer.MAX_SAMPLES||samples+count>budget[0]){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}samples+=count;ordered.add(new AudioPacket(s,frame,position));}}
+        ordered.sort(Comparator.comparingLong(p->p.position));
         Detector detector=new Detector(first,base,originUs);long previous=-1;String codec="";MediaDecoder decoder=null;Set<Long> seen=new HashSet<>();
-        for(RtpPacket p:ordered){RtpStream s=owners.get(p);long position=(int)(p.timestamp-base)*8000L/s.clock;if(!seen.add(position))continue;int count=(int)(AudioRenderer.sampleCount(s,p)*8000L/s.clock);if(position+count>AudioRenderer.MAX_SAMPLES||budget[0]<count){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}
+        Set<RtpStream> failedAmr=Collections.newSetFromMap(new IdentityHashMap<RtpStream,Boolean>());
+        try{for(AudioPacket packet:ordered){if(Thread.currentThread().isInterrupted())throw new java.util.concurrent.CancellationException("按键分析已取消");RtpStream s=packet.stream;RtpPacket p=s.packets.get(packet.frame.index);if(failedAmr.contains(s))continue;long position=packet.position;if(!seen.add(position))continue;int count=(int)(AudioRenderer.sampleCount(s,p)*8000L/s.clock);if(position+count>AudioRenderer.MAX_SAMPLES||budget[0]<count){analysis.warn("音内按键分析达到时长上限，部分音频未扫描");break;}
             if(previous>=0&&position>previous)detector.gap();if(position<previous)continue;
-            try{if(!codec.equals(s.codec)){codec=s.codec;decoder=new MediaDecoder(s,8000);}if(previous>=0&&position>previous)decoder.gap(position-previous);short[] pcm=decoder.decode(p.payload());budget[0]-=pcm.length;for(int i=0;i<pcm.length;i++)detector.add(pcm[i],position+i);previous=position+pcm.length;}
-            catch(IOException e){analysis.warn("音内按键跳过无法解码的数据包");detector.gap();decoder=null;codec="";previous=-1;}
-        }
-        detector.flush(false);return detector.events;
+            try{if(!codec.equals(s.codec)){if(decoder!=null)decoder.close();codec=s.codec;decoder=new MediaDecoder(s,8000);}if(previous>=0&&position>previous)decoder.gap(position-previous);short[] pcm=decoder.decode(p.payload());budget[0]-=pcm.length;for(int i=0;i<pcm.length;i++)detector.add(pcm[i],position+i);previous=position+pcm.length;}
+            catch(IOException e){analysis.warn("音内按键跳过无法解码的数据包");if(CodecSupport.amr(s)){failedAmr.add(s);analysis.warn("当前 AMR 流无法解码，已保留报文与质量统计");}detector.gap();if(decoder!=null)try{decoder.close();}catch(IOException ignored){}decoder=null;codec="";previous=-1;}
+        }}finally{if(decoder!=null)try{decoder.close();}catch(IOException ignored){}}detector.flush(false);
+        int cursor=0;for(DtmfParser.Event event:detector.events){long start=(event.firstSeenUs-originUs)/125;while(cursor+1<ordered.size()&&ordered.get(cursor+1).position<=start)cursor++;if(!ordered.isEmpty()){AudioPacket source=ordered.get(cursor);RtpPacket packet=source.stream.packets.get(source.frame.index);double duration=event.durationMs();event.clock=source.stream.clock;event.durationTicks=Math.round(duration*event.clock/1000);event.timestamp=(packet.timestamp+(start-source.position)*event.clock/8000)&0xffffffffL;}}
+        return detector.events;
     }
     private InbandDtmf(){}
 }
