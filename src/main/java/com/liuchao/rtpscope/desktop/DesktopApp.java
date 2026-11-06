@@ -17,7 +17,7 @@ import com.liuchao.rtpscope.core.CaptureEngine.*;
 
 /** Windows desktop shell. Parsing/decoding/file operations run outside the Swing event thread. */
 public final class DesktopApp extends JPanel {
-    public static final String VERSION="0.8.3";
+    public static final String VERSION="0.8.4";
     public final DesktopModel model=new DesktopModel();
     public final FlowPanel flow=new FlowPanel();
     public final SipDetailPanel detail=new SipDetailPanel();
@@ -360,7 +360,7 @@ public final class DesktopApp extends JPanel {
     public static void main(String[] args) throws Exception {
         if(args.length>=2&&args[0].equals("--diagnostics")){diagnostics(new File(args[1]));return;}
         Thread.setDefaultUncaughtExceptionHandler((thread,error)->{error.printStackTrace();SwingUtilities.invokeLater(()->JOptionPane.showMessageDialog(null,Ui.error(error),"超哥话探",JOptionPane.ERROR_MESSAGE));});
-        SwingUtilities.invokeLater(()->{Ui.setup();DesktopApp app=new DesktopApp();JFrame frame=new JFrame("超哥话探 · SIP · RTP 通话分析");frame.setIconImage(Ui.icon());frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);Workbench workbench=new Workbench(app);frame.setContentPane(workbench);Ui.fitWindow(frame,1450,920,1040,700);frame.setLocationRelativeTo(null);frame.addWindowListener(new WindowAdapter(){public void windowClosing(WindowEvent e){if(app.captureFile!=null&&JOptionPane.showConfirmDialog(frame,"正在抓包，停止抓包后关闭？","关闭",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;workbench.close();app.shutdown();frame.dispose();}});frame.setVisible(true);if(args.length>0){List<File> files=new ArrayList<>();for(String arg:args)files.add(new File(arg));app.loadFiles(files);}});
+        SwingUtilities.invokeLater(()->{Ui.setup();DesktopApp app=new DesktopApp();JFrame frame=new JFrame("超哥话探 · SIP · RTP 通话分析");frame.setIconImages(Ui.icons());frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);Workbench workbench=new Workbench(app);frame.setContentPane(workbench);Ui.fitWindow(frame,1450,920,1040,700);frame.setLocationRelativeTo(null);frame.addWindowListener(new WindowAdapter(){public void windowClosing(WindowEvent e){if(app.captureFile!=null&&JOptionPane.showConfirmDialog(frame,"正在抓包，停止抓包后关闭？","关闭",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;workbench.close();app.shutdown();frame.dispose();}});frame.setVisible(true);if(args.length>0){List<File> files=new ArrayList<>();for(String arg:args)files.add(new File(arg));app.loadFiles(files);}});
     }
     public static void diagnostics(File output) throws Exception {
         SwingUtilities.invokeAndWait(Ui::setup);

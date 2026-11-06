@@ -4,6 +4,8 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import com.formdev.flatlaf.FlatLightLaf;
@@ -39,11 +41,12 @@ final class Ui {
     static String stamp(long us){return new SimpleDateFormat("HH:mm:ss.SSS",Locale.ROOT).format(new Date(us/1000));}
     static String clock(long ms){return String.format(Locale.ROOT,"%02d:%02d.%03d",ms/60000,(ms/1000)%60,ms%1000);}
     static String shortText(String s,int size){return s.length()>size?s.substring(0,size-1)+"…":s;}
-    static BufferedImage icon() {
-        BufferedImage img=new BufferedImage(64,64,BufferedImage.TYPE_INT_ARGB);Graphics2D g=img.createGraphics();g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setColor(ACCENT);g.fillRoundRect(0,0,64,64,16,16);g.setColor(Color.WHITE);int[] heights={14,26,42,30,18};
-        for(int i=0;i<5;i++)g.fillRoundRect(11+i*9,32-heights[i]/2,5,heights[i],4,4);g.dispose();return img;
+    private static final class BrandIcon {
+        static final BufferedImage IMAGE=load();
+        private static BufferedImage load(){try{BufferedImage image=ImageIO.read(Ui.class.getResource("/brand/logo.png"));if(image==null)throw new IOException("Unsupported logo image");return image;}catch(IOException e){throw new IllegalStateException("Cannot load application logo",e);}}
     }
+    static BufferedImage icon(){return BrandIcon.IMAGE;}
+    static java.util.List<Image> icons(){java.util.List<Image> images=new ArrayList<>();for(int size:new int[]{16,24,32,48,64,128,256})images.add(icon().getScaledInstance(size,size,Image.SCALE_SMOOTH));return images;}
     static void copy(String value){Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(value),null);}
     static void fitWindow(Window window,int width,int height,int minWidth,int minHeight){Rectangle area=GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();int w=Math.min(u(width),(int)(area.width*0.96)),h=Math.min(u(height),(int)(area.height*0.96));window.setMinimumSize(new Dimension(Math.min(u(minWidth),w),Math.min(u(minHeight),h)));window.setSize(w,h);}
     static String error(Throwable error){Throwable e=error;while(e.getCause()!=null)e=e.getCause();return e.getMessage()==null?e.getClass().getSimpleName():e.getMessage();}

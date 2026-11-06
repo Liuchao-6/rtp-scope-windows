@@ -1,9 +1,9 @@
 """Build/test the standalone Windows app and package a verified private runtime."""
 from pathlib import Path
-import hashlib,json,os,shutil,struct,subprocess,sys,zipfile
+import hashlib,json,os,shutil,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.8.3'
+VERSION='0.8.4'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'
@@ -29,14 +29,7 @@ def runtime():
     print('Verified Eclipse Temurin runtime',flush=True)
 
 def icon(path):
-    size=64; pixels=bytearray()
-    heights=[14,26,42,30,18]
-    for y in reversed(range(size)):
-        for x in range(size):
-            mint=any(11+i*9<=x<16+i*9 and 32-h//2<=y<32+h//2 for i,h in enumerate(heights))
-            r,g,b=(255,255,255) if mint else (0,103,192);pixels.extend((b,g,r,255))
-    mask=bytes(((size+31)//32)*4*size);dib=struct.pack('<IiiHHIIiiII',40,size,size*2,1,32,0,len(pixels)+len(mask),0,0,0,0)+pixels+mask
-    path.write_bytes(struct.pack('<HHH',0,1,1)+struct.pack('<BBBBHHII',size,size,0,0,1,32,len(dib),22)+dib)
+    shutil.copy2(ROOT/'src/main/resources/brand/app.ico',path)
 
 def checksum(path):path.with_name(path.name+'.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest()+'  '+path.name+'\n',encoding='utf-8')
 

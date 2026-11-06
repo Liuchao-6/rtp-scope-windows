@@ -1,8 +1,24 @@
 # 超哥话探 · Windows
 
+<img src="docs/images/logo.png" width="80" alt="超哥话探 Logo">
+
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.3/ChaogeHuatan-0.8.3-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.3/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/ChaogeHuatan-0.8.4-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+
+## 解决的痛点
+
+| 痛点 | 解决方式 |
+| --- | --- |
+| 看信令、媒体、按键和导出录音，需要切换多个入口 | 按通话汇总 SIP、RTP 和按键，集中查看流序图、试听并导出 WAV。 |
+| TLS / WSS 信令解密配置门槛高 | 分别导入抓包与 RSA 私钥或 TLS key log，简化支持范围内的信令还原。 |
+| tcpdump 抓包包含大量通话，目标通话难找 | 按主被叫号码、时间和 IP 查找通话，联动查看对应信令与媒体。 |
+| 现场拿到抓包，还需要转到电脑处理 | Android 手机可直接离线分析，Windows 提供便携版。 |
+| IVR 按键传输方式不同，容易漏查 | 统一展示 RFC 2833 / 4733、SIP INFO 和 In-band DTMF，标明类型、方向与时间。 |
+| 卡顿、断续位置难找，录音与报文难对应 | 双向波形支持缩放，结合序号缺口和到达延迟标记，辅助定位抓包可见的异常。 |
+| 通话时间、时长和结束方需要逐包整理 | 通话体检集中显示开始、接通、结束时间、时长和结束发起侧，证据不足时显示未知。 |
+| 长录音查找内容费时 | 通话与本地录音可离线转文字，按媒体方向或声道分别识别，支持关键词搜索和对应片段回听。 |
+| 排障材料整理、交接麻烦，报告含敏感信息 | 导出 HTML 报告、关联抓包和录音；报告中的号码与 IP 可分别选择遮蔽。 |
 
 ## 主要功能
 
