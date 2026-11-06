@@ -26,11 +26,31 @@
 
 ## 界面
 
-![通话体检](docs/images/call-health.png)
+以下截图与波形使用合成演示数据。
 
-![录音转写工作区，使用合成演示数据](docs/images/recording-workspace.png)
+**SIP 流序与彩色报文**
 
 ![SIP 流序与彩色报文](docs/images/sip-flow.png)
+
+**双向 RTP 波形**：上下分路，标记按键、缺包与到达延迟。
+
+![双向 RTP 波形与播放、导出控制](docs/images/rtp-waveform.png)
+
+**三类按键**：区分 RFC 2833 / 4733、SIP INFO 和 In-band DTMF。
+
+![三类按键在双向波形上的类型和位置](docs/images/dtmf-types.png)
+
+**通话体检**：时间、时长、结束方及信令 / 媒体证据。
+
+![通话体检](docs/images/call-health.png)
+
+**RSA / TLS / WSS**：分别导入抓包与密钥，查看还原后的 SIP。
+
+![导入合成 RSA 私钥后还原 WSS 中的 SIP 报文](docs/images/rsa-private-key.png)
+
+**录音转文字**：按声道查看、搜索、回听与导出。
+
+![录音转写工作区，使用合成演示数据](docs/images/recording-workspace.png)
 
 ## 解密与使用范围
 
