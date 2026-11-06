@@ -49,7 +49,7 @@ RSA 解密需要 ClientHello、ServerHello、ClientKeyExchange，扩展主密钥
 播放器「试听设置」提供方向独听、静音、左右声道、倍速和 A/B 循环。支持 G.722 64 kbit/s 和常见 AMR-NB / WB 单声道 RTP，不支持 AMR CRC、robust sorting、交织。
 
 离线转文字
-「录音转文字」可导入 WAV、MP3、M4A / AAC、FLAC。先下载配套 Huatan-Whisper-tiny-int8.zip，在「导入模型包」选择，无需解压。RTP 页的「转写当前通话」也进入此工作区。模型仅需导入一次，后续离线运行。
+「录音转文字」可导入 WAV、MP3、M4A / AAC、FLAC。先下载配套 Huatan-SenseVoice-int8.zip，在「导入模型包」选择，无需解压。RTP 页的「转写当前通话」也进入此工作区。模型仅需导入一次，后续离线运行。
 双声道默认分别识别，可选择混合；支持搜索、回听、声道改名，以及 TXT / SRT 合并或分别导出。时间戳为原录音中的语音片段范围，不保证逐字对齐；识别结果请回听确认。
 
 索引缓存
