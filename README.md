@@ -4,7 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/ChaogeHuatan-0.8.4-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.5/ChaogeHuatan-0.8.5-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+
+**0.8.5 更新**：修复 RTP 时间戳未反映实际停顿时，两路通话录音逐渐错位的问题；试听、波形、按键和 WAV 导出同步校正。升级后重新导入抓包，旧索引会自动重新分析，离线模型无需重新下载。
 
 ## 解决的痛点
 
@@ -27,7 +29,7 @@
 - **通话资料**：按需导出原始关联 PCAPNG、各方向 WAV 和 HTML 报告；报告可分别选择遮蔽号码、IP；单项或单方向失败后继续导出其余内容，并列出结果。
 - **抓包对照与关联**：对照两个抓包的同一 SIP 事务，手动校准时间；查看 Replaces / Join / Refer-To 证据与候选通话段，手动确认、移除或定位。
 - **大文件**：单文件至 1 GiB，分阶段进度、取消导入和解析索引复用；中断抓包分析已写入的内容。
-- **双向试听**：分路波形、缩放、收起、缺包与延迟标记；独听、静音、左右声道、0.5～2 倍速和 A/B 循环。RTP 时间戳异常跳变时按抓包时间分段衔接，保留正常时序和实际静音。
+- **双向试听**：分路波形、缩放、收起、缺包与延迟标记；独听、静音、左右声道、0.5～2 倍速和 A/B 循环。兼容 RTP 时间戳异常跳变或持续落后，结合抓包时间恢复必要间隔，保留短暂网络抖动的原始播放节奏。
 - **媒体编码**：G.711、G.729 / G.729A、Opus、G.722，以及常用 AMR-NB / AMR-WB RTP 封装。
 - **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
 

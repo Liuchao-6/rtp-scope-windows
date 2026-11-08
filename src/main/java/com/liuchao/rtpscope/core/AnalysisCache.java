@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Private versioned index. Media is restored to a disk store, never materialised as a large byte array. */
 public final class AnalysisCache {
-    private static final String VERSION="huatan-index-3";
+    private static final String VERSION="huatan-index-4";
     static final ThreadLocal<PacketStore> restoring=new ThreadLocal<>();
     private final File directory;
     private final long capacity;

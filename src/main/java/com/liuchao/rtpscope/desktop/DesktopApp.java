@@ -17,7 +17,7 @@ import com.liuchao.rtpscope.core.CaptureEngine.*;
 
 /** Windows desktop shell. Parsing/decoding/file operations run outside the Swing event thread. */
 public final class DesktopApp extends JPanel {
-    public static final String VERSION="0.8.4";
+    public static final String VERSION="0.8.5";
     public final DesktopModel model=new DesktopModel();
     public final FlowPanel flow=new FlowPanel();
     public final SipDetailPanel detail=new SipDetailPanel();

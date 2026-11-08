@@ -116,6 +116,7 @@ public final class CoreTest {
         checks+=ChannelAudioTest.run(fixtures,output);
         checks+=FeatureRegressionTest.run(output);
         checks+=RtpRecoveryTest.run(output);
+        checks+=RtpClockSkewTest.run(output);
         checks+=CaptureWorkspaceTest.run();
         checks+=CallSearchTest.run(fixtures);
         checks+=SecureTransportTest.run(fixtures,output);
