@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.5/ChaogeHuatan-0.8.5-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.6/ChaogeHuatan-0.8.6-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.8.5 更新**：修复 RTP 时间戳未反映实际停顿时，两路通话录音逐渐错位的问题；试听、波形、按键和 WAV 导出同步校正。升级后重新导入抓包，旧索引会自动重新分析，离线模型无需重新下载。
+**0.8.6 更新**：新增 Windows 检查更新，可查看 GitHub 正式版及更新说明，支持启动检查、手动检查和忽略版本。旧用户首次需手动下载升级，已导入的离线模型无需重新下载。
 
 ## 解决的痛点
 
@@ -32,6 +32,7 @@
 - **双向试听**：分路波形、缩放、收起、缺包与延迟标记；独听、静音、左右声道、0.5～2 倍速和 A/B 循环。兼容 RTP 时间戳异常跳变或持续落后，结合抓包时间恢复必要间隔，保留短暂网络抖动的原始播放节奏。
 - **媒体编码**：G.711、G.729 / G.729A、Opus、G.722，以及常用 AMR-NB / AMR-WB RTP 封装。
 - **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
+- **检查更新**：启动后每 24 小时最多查询一次 GitHub 正式版，也可手动检查；显示更新说明，支持稍后提醒、忽略此版本和关闭启动检查。下载通过浏览器打开官方发布页。
 
 ## 使用
 
@@ -39,6 +40,7 @@
 2. 导入或拖入抓包，先在左侧找通话，再查看流序图、媒体或「通话体检」。可以先体验合成演示。
 3. 双击媒体流显示波形；「试听设置」控制方向、声道、倍速及循环。「导出 WAV」生成一个文件，每路方向独立声道，按波形从上到下排列并按抓包时间对齐；试听静音和倍速不改变导出内容。
 4. 转写前下载配套模型 ZIP，在「录音转文字」中「导入模型包」，无需解压。再导入录音，或从 RTP 页「转写当前通话」。
+5. 点击右上角「检查更新」查看新版；「更多 → 启动时检查更新」可关闭自动查询。下载后完整解压到新目录，关闭旧版再运行；用户目录中的模型和索引可继续使用。旧版首次需手动升级，才能获得检查更新功能。
 
 录音支持 WAV、MP3、M4A / AAC、FLAC，最长 60 分钟。配套推荐 SenseVoice Small int8，中文结果统一转为简体，仍可切换 Whisper；也可导入同一套 encoder、decoder 与 tokens 的 Whisper base ONNX ZIP。时间戳表示原录音中的语音片段范围，不保证逐字对齐，识别内容请回听确认。
 
@@ -80,6 +82,7 @@
 - 对照未见、序号缺口与到达延迟只反映当前抓包所见；候选关联不等于已确认同一通话，声道不等于人物身份。
 - 未加载解密密钥时复用解析索引；文件、解析版本或密钥变化时重新分析。索引存于用户目录 `.chaoge-huatan/index`，最多约 2 GiB；媒体临时缓存另需预留空间。
 - 最多 2000 万包、3 万条 SIP 消息，TCP 重组上限 24 MiB。离线分析无需 Wireshark；「本机抓包」需另装 tshark / Npcap。
+- 检查更新只读取 GitHub 公开版本信息，不上传抓包、录音或密钥；无需 GitHub 登录。网络不可用时仍可分析本地文件，启动检查失败时不弹窗。更新设置存于用户目录 `.chaoge-huatan/update.properties`；支持系统代理，网络环境仍需能访问 GitHub。
 
 ## 构建
 

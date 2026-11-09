@@ -93,6 +93,7 @@ public final class DesktopTest {
         checks+=WorkbenchTest.run(fixtures,out);
         checks+=CallHealthInteractionTest.run(fixtures,out);
         checks+=ChannelExportInteractionTest.run(fixtures,out);
+        checks+=UpdateTest.run(out);
         System.out.println("PASS: "+checks+" desktop assertions; filtering, capture finalization, real Swing actions, syntax colors, waveform, diagnostic");
     }
     private static void layout(Container container){container.doLayout();for(Component child:container.getComponents())if(child instanceof Container)layout((Container)child);}
