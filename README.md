@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.7/ChaogeHuatan-0.8.7-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.8/ChaogeHuatan-0.8.8-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.8.7 更新**：关闭窗口时可选择隐藏到托盘、退出程序或取消。隐藏期间当前任务继续运行，双击托盘图标或通过托盘菜单恢复主界面；退出时停止任务并清理资源。
+**0.8.8 更新**：通话与信令就绪后即可查找和筛选，RTP 质量、音内按键与索引保存继续在后台完成。分析完成后自动更新结果，保留当前通话、搜索和页面；等待期间明确显示待分析状态。修复托盘右键菜单中文字显示成方框的问题。
 
 ## 解决的痛点
 
@@ -28,7 +28,7 @@
 - **通话体检**：开始、接通、结束时间、时长、结束发起侧、Reason / Q.850，以及信令与媒体问题的证据。抓包缺少结束时，完整时长与挂断方显示未知。
 - **通话资料**：按需导出原始关联 PCAPNG、各方向 WAV 和 HTML 报告；报告可分别选择遮蔽号码、IP；单项或单方向失败后继续导出其余内容，并列出结果。
 - **抓包对照与关联**：对照两个抓包的同一 SIP 事务，手动校准时间；查看 Replaces / Join / Refer-To 证据与候选通话段，手动确认、移除或定位。
-- **大文件**：单文件至 1 GiB，分阶段进度、取消导入和解析索引复用；中断抓包分析已写入的内容。
+- **大文件**：单文件至 1 GiB，先查看通话与 SIP，再后台分析媒体和保存索引；各阶段显示进度，可停止后台任务，兼容已有完整索引；中断抓包分析已写入的内容。
 - **双向试听**：分路波形、缩放、收起、缺包与延迟标记；独听、静音、左右声道、0.5～2 倍速和 A/B 循环。兼容 RTP 时间戳异常跳变或持续落后，结合抓包时间恢复必要间隔，保留短暂网络抖动的原始播放节奏。
 - **媒体编码**：G.711、G.729 / G.729A、Opus、G.722，以及常用 AMR-NB / AMR-WB RTP 封装。
 - **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
@@ -38,7 +38,7 @@
 ## 使用
 
 1. 完整解压便携 ZIP，双击 `ChaogeHuatan.exe`，无需另装 Java。
-2. 导入或拖入抓包，先在左侧找通话，再查看流序图、媒体或「通话体检」。可以先体验合成演示。
+2. 导入或拖入抓包，先在左侧找通话，再查看流序图、媒体或「通话体检」。可以先体验合成演示。首次导入时，信令就绪即可查找通话；媒体质量和音内按键完成后开放播放、体检、转写与导出，保存索引期间仍可使用。
 3. 双击媒体流显示波形；「试听设置」控制方向、声道、倍速及循环。「导出 WAV」生成一个文件，每路方向独立声道，按波形从上到下排列并按抓包时间对齐；试听静音和倍速不改变导出内容。
 4. 转写前下载配套模型 ZIP，在「录音转文字」中「导入模型包」，无需解压。再导入录音，或从 RTP 页「转写当前通话」。
 5. 点击右上角「检查更新」查看新版；「更多 → 启动时检查更新」可关闭自动查询。下载后完整解压到新目录，关闭旧版再运行；用户目录中的模型和索引可继续使用。旧版首次需手动升级，才能获得检查更新功能。

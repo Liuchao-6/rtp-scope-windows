@@ -10,7 +10,7 @@ public final class TlsImportTest {
     private static int checks;
     private static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     private static Component find(Container root,String name){for(Component child:root.getComponents()){if(name.equals(child.getName()))return child;if(child instanceof Container){Component result=find((Container)child,name);if(result!=null)return result;}}return null;}
-    private static void ready(DesktopApp app)throws Exception{for(int n=0;n<400;n++){boolean[] busy={false};SwingUtilities.invokeAndWait(()->busy[0]=app.isBusy());if(!busy[0])return;Thread.sleep(25);}throw new AssertionError("TLS import timeout");}
+    private static void ready(DesktopApp app)throws Exception{for(int n=0;n<400;n++){boolean[] busy={false};SwingUtilities.invokeAndWait(()->busy[0]=(app.isBusy()||app.isBackgroundWorking()));if(!busy[0])return;Thread.sleep(25);}throw new AssertionError("TLS import timeout");}
     public static int run(File fixtures)throws Exception {
         DesktopApp[] holder={null};SwingUtilities.invokeAndWait(()->{holder[0]=new DesktopApp();check(find(holder[0],"importTlsKeys") instanceof JButton,"independent TLS import action exists");holder[0].loadTlsKeyLog(new File(fixtures,"tls13-websocket.keys"));});DesktopApp app=holder[0];
         try{

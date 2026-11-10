@@ -76,10 +76,17 @@ final class TrayManager extends WindowAdapter implements AutoCloseable {
     static final class NativeTray implements Tray {
         private TrayIcon icon;
         public boolean supported(){return SystemTray.isSupported();}
+        static PopupMenu menu(Runnable restore,Runnable exit){
+            Font font=Ui.font(13);PopupMenu menu=new PopupMenu();menu.setFont(font);
+            MenuItem open=new MenuItem("打开主界面"),quit=new MenuItem("退出程序");
+            // Windows AWT menu peers do not reliably inherit the popup's Chinese font.
+            // Set each item's font before its native peer is created.
+            open.setFont(font);quit.setFont(font);
+            open.addActionListener(e->SwingUtilities.invokeLater(restore));quit.addActionListener(e->SwingUtilities.invokeLater(exit));menu.add(open);menu.addSeparator();menu.add(quit);return menu;
+        }
         public void add(Runnable restore,Runnable exit)throws AWTException {
             if(icon!=null)return;
-            SystemTray system=SystemTray.getSystemTray();PopupMenu menu=new PopupMenu();menu.setFont(Ui.font(13));
-            MenuItem open=new MenuItem("打开主界面"),quit=new MenuItem("退出程序");open.addActionListener(e->SwingUtilities.invokeLater(restore));quit.addActionListener(e->SwingUtilities.invokeLater(exit));menu.add(open);menu.addSeparator();menu.add(quit);
+            SystemTray system=SystemTray.getSystemTray();PopupMenu menu=menu(restore,exit);
             Dimension size=system.getTrayIconSize();TrayIcon candidate=new TrayIcon(Ui.icon().getScaledInstance(size.width,size.height,Image.SCALE_SMOOTH),"超哥话探 · 双击打开主界面",menu);candidate.setImageAutoSize(true);candidate.addActionListener(e->SwingUtilities.invokeLater(restore));
             try{system.add(candidate);icon=candidate;}catch(AWTException|RuntimeException e){system.remove(candidate);throw e;}
         }

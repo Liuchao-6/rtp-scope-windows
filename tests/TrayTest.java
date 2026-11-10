@@ -91,13 +91,16 @@ public final class TrayTest {
                 if(opened.get()!=1)throw new AssertionError("Tray double-click action did not reach Swing");
                 PopupMenu menu=icon.get().getPopupMenu();MenuItem open=menu.getItem(0),quit=menu.getItem(2);
                 if(!open.getLabel().equals("打开主界面")||!quit.getLabel().equals("退出程序"))throw new AssertionError("Native tray menu labels");
+                try{java.lang.reflect.Field font=MenuComponent.class.getDeclaredField("font");font.setAccessible(true);
+                    for(MenuItem item:new MenuItem[]{open,quit}){Font explicit=(Font)font.get(item);if(explicit==null||explicit.canDisplayUpTo(item.getLabel())!=-1||!explicit.equals(menu.getFont()))throw new AssertionError("Native menu item needs an explicit Chinese font: "+item.getLabel());}
+                }catch(ReflectiveOperationException e){throw new AssertionError(e);}
                 for(ActionListener action:open.getActionListeners())action.actionPerformed(new ActionEvent(open,ActionEvent.ACTION_PERFORMED,"open"));
                 for(ActionListener action:quit.getActionListeners())action.actionPerformed(new ActionEvent(quit,ActionEvent.ACTION_PERFORMED,"exit"));
             });
             SwingUtilities.invokeAndWait(()->{if(opened.get()!=2||exited.get()!=1)throw new AssertionError("Native tray menu callback dispatch");});
         }finally{SwingUtilities.invokeAndWait(tray::remove);}
         if(Arrays.asList(SystemTray.getSystemTray().getTrayIcons()).contains(icon.get()))throw new AssertionError("Tray icon leaked");
-        System.out.println("PASS: real Windows tray registration, native menu/action callbacks and removal; os="+System.getProperty("os.name"));
+        System.out.println("PASS: real Windows tray registration, explicit Chinese menu fonts, native menu/action callbacks and removal; os="+System.getProperty("os.name"));
     }
     public static void main(String[] args)throws Exception{if(args.length>0&&args[0].equals("--native"))nativeProbe();else run(new File(args.length>0?args[0]:"build"));}
 }

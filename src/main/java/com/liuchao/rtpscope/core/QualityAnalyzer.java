@@ -42,11 +42,14 @@ public final class QualityAnalyzer {
         };
     }
     public static void attach(List<RtpStream> visible,List<RtpStream> candidates,boolean reliable) {
+        attach(visible,candidates,reliable,null);
+    }
+    public static void attach(List<RtpStream> visible,List<RtpStream> candidates,boolean reliable,CaptureEngine.Progress progress) {
         Map<String,List<RtpStream>> groups=new LinkedHashMap<>();
         for(RtpStream s:visible)groups.computeIfAbsent(s.transportKey(),k->new ArrayList<>());
         for(RtpStream s:candidates){List<RtpStream> group=groups.get(s.transportKey());if(group!=null)group.add(s);}
         Map<String,Report> reports=new HashMap<>();
-        for(Map.Entry<String,List<RtpStream>> group:groups.entrySet())reports.put(group.getKey(),analyze(group.getValue(),reliable));
+        int index=0;for(Map.Entry<String,List<RtpStream>> group:groups.entrySet()){if(progress!=null)progress.stage("RTP 质量分析 · "+(++index)+" / "+groups.size()+" 路");reports.put(group.getKey(),analyze(group.getValue(),reliable));}
         for(RtpStream stream:visible){stream.quality=reports.get(stream.transportKey());stream.lost=stream.quality.lost;stream.duplicates=stream.quality.duplicates;}
     }
     public static Report analyze(List<RtpStream> streams,boolean reliable) {

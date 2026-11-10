@@ -13,7 +13,7 @@ public final class MultiCaptureTest {
     private static int checks;
     private static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     private static void ready(DesktopApp app)throws Exception{
-        for(int i=0;i<300;i++){AtomicReference<Boolean> busy=new AtomicReference<>();SwingUtilities.invokeAndWait(()->busy.set(app.isBusy()));if(!busy.get())return;Thread.sleep(30);}
+        for(int i=0;i<300;i++){AtomicReference<Boolean> busy=new AtomicReference<>();SwingUtilities.invokeAndWait(()->busy.set((app.isBusy()||app.isBackgroundWorking())));if(!busy.get())return;Thread.sleep(30);}
         throw new AssertionError("capture background task timed out");
     }
     private static Component find(Container parent,String name){for(Component child:parent.getComponents()){if(name.equals(child.getName()))return child;if(child instanceof Container){Component found=find((Container)child,name);if(found!=null)return found;}}return null;}

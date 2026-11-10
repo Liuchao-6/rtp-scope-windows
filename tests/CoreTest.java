@@ -124,6 +124,7 @@ public final class CoreTest {
         checks+=PresentationTest.run(integrated,tcp,keys);
         checks+=PartialCaptureTest.run(fixtures);
         checks+=KeyModesTest.run(fixtures);
+        checks+=DeferredCaptureTest.run(fixtures,output);
         System.out.println("PASS: "+checks+" assertions; codecs, captures, SIP ladder, syntax colors, RTP quality, waveform");
     }
 }

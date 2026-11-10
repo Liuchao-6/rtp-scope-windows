@@ -30,7 +30,12 @@ public final class FlowPanel extends JPanel implements Scrollable {
     public void setOpenListener(Consumer<Object> callback){open=callback;}
     public CallFlow data(){return flow;}
     public void setData(CallFlow value) {
+        setData(value,false);
+    }
+    public void setData(CallFlow value,boolean keepSelection) {
+        Object source=keepSelection&&selected>=0&&selected<flow.entries.size()?flow.entries.get(selected).source:null;
         flow=value;nodes.clear();for(int i=0;i<flow.nodes.size();i++)nodes.put(flow.nodes.get(i),i);selected=-1;
+        if(source!=null)for(int i=0;i<flow.entries.size();i++)if(flow.entries.get(i).source==source){selected=i;break;}
         revalidate();repaint();header.revalidate();header.repaint();times.revalidate();times.repaint();
     }
     public int entryAt(Point point){int n=point.y/row;return point.y>=0&&n<flow.entries.size()?n:-1;}

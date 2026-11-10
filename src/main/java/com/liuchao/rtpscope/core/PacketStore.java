@@ -13,6 +13,8 @@ public final class PacketStore implements Closeable {
     private final byte[] cache=new byte[262144];
     private int cached;
     private boolean closed;
+    private boolean ownerClosed;
+    private int leases;
     PacketStore(File directory)throws IOException{
         file=File.createTempFile("chaoge-huatan-media-",".cache",directory);file.deleteOnExit();
         try{writer=new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file),262144));}catch(IOException e){file.delete();throw e;}
@@ -32,9 +34,12 @@ public final class PacketStore implements Closeable {
         try{byte[] h=bytes(offset,25);RtpPacket p=new RtpPacket();p.timeUs=longAt(h,0);p.timestamp=longAt(h,8);p.sequence=((h[16]&255)<<24)|((h[17]&255)<<16)|((h[18]&255)<<8)|(h[19]&255);p.marker=h[20]!=0;p.storedLength=((h[21]&255)<<24)|((h[22]&255)<<16)|((h[23]&255)<<8)|(h[24]&255);p.store=this;p.payloadOffset=offset+25;return p;}catch(IOException e){throw new UncheckedIOException(e);}
     }
     public File file(){return file;}
-    public synchronized void close()throws IOException{
-        if(closed)return;closed=true;try{if(writer!=null)writer.close();if(reader!=null)reader.close();}finally{if(!file.delete())file.deleteOnExit();}
+    public synchronized Closeable retain()throws IOException{
+        if(ownerClosed||closed)throw new IOException("媒体缓存已关闭");leases++;
+        return new Closeable(){private boolean released;public void close()throws IOException{synchronized(PacketStore.this){if(released)return;released=true;if(--leases==0&&ownerClosed)dispose();}}};
     }
+    public synchronized void close()throws IOException{if(ownerClosed)return;ownerClosed=true;if(leases==0)dispose();}
+    private void dispose()throws IOException{if(closed)return;closed=true;try{if(writer!=null)writer.close();if(reader!=null)reader.close();}finally{if(!file.delete())file.deleteOnExit();}}
     static final class Packets extends AbstractList<RtpPacket> implements RandomAccess {
         final PacketStore store;long[] offsets=new long[64];int count;long last=Long.MIN_VALUE;boolean sorted=true;
         Packets(PacketStore store){this.store=store;}

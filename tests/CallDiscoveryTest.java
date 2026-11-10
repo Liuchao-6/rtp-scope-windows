@@ -11,7 +11,7 @@ public final class CallDiscoveryTest {
     private static int checks;
     private static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     private static Component find(Container c,String name){for(Component child:c.getComponents()){if(name.equals(child.getName()))return child;if(child instanceof Container){Component result=find((Container)child,name);if(result!=null)return result;}}return null;}
-    private static void ready(DesktopApp app)throws Exception{for(int i=0;i<300;i++){final boolean[] busy={false};SwingUtilities.invokeAndWait(()->busy[0]=app.isBusy());if(!busy[0])return;Thread.sleep(30);}throw new AssertionError("Import timeout");}
+    private static void ready(DesktopApp app)throws Exception{for(int i=0;i<300;i++){final boolean[] busy={false};SwingUtilities.invokeAndWait(()->busy[0]=(app.isBusy()||app.isBackgroundWorking()));if(!busy[0])return;Thread.sleep(30);}throw new AssertionError("Import timeout");}
     public static int run(File fixtures,File out)throws Exception{
         Analysis demo;try(InputStream in=new FileInputStream(new File(fixtures,"demo-analysis.pcap"))){demo=CaptureEngine.read(in);}
         final DesktopApp[] holder={null};SwingUtilities.invokeAndWait(()->{

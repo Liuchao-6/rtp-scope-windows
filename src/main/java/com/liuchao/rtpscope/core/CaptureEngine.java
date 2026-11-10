@@ -112,6 +112,7 @@ public final class CaptureEngine {
     private final List<TcpFlow> tcp = new ArrayList<>();
     private final Map<String,Call> calls = new LinkedHashMap<>();
     private final List<Media> media = new ArrayList<>();
+    private List<RtpStream> deferredCandidates;
     private int mediaBytes, tcpBytes;
     private long packetLimit=500000;
     private long inputLimit=MAX_FILE;
@@ -155,7 +156,14 @@ public final class CaptureEngine {
         CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);engine.rsaKeys=Objects.requireNonNull(rsa);engine.inputLimit=MAX_DESKTOP_FILE;engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(cacheDirectory);
         try{return read(input,engine,progress);}catch(IOException|RuntimeException e){try{engine.result.close();}catch(IOException ignored){}throw e;}
     }
+    public static DeferredCapture readLargeSignaling(InputStream input,File directory,Progress progress,TlsKeyLog keys,TlsRsaKeys rsa)throws IOException{
+        CaptureEngine engine=new CaptureEngine();engine.keyLog=Objects.requireNonNull(keys);engine.rsaKeys=Objects.requireNonNull(rsa);engine.inputLimit=MAX_DESKTOP_FILE;engine.packetLimit=20000000;engine.result.mediaStore=new PacketStore(directory);
+        try{read(input,engine,progress,true);return new DeferredCapture(engine.result,engine.deferredCandidates);}catch(IOException|RuntimeException e){try{engine.result.close();}catch(IOException ignored){}throw e;}
+    }
     private static Analysis read(InputStream input,CaptureEngine supplied,Progress progress)throws IOException{
+        return read(input,supplied,progress,false);
+    }
+    private static Analysis read(InputStream input,CaptureEngine supplied,Progress progress,boolean deferMedia)throws IOException{
         CaptureEngine engine = supplied==null?new CaptureEngine():supplied;
         CountingInput in = new CountingInput(new BufferedInputStream(input,262144),engine.inputLimit,progress,engine);
         byte[] magic = exact(in, 4, false);
@@ -168,7 +176,7 @@ public final class CaptureEngine {
         }
         if(engine.result.mediaStore!=null)engine.result.mediaStore.seal();
         if(progress!=null)progress.stage("信令重组与通话索引");
-        engine.finish(progress);
+        engine.finish(progress,deferMedia);
         engine.result.bytes = in.count;
         return engine.result;
     }
@@ -442,7 +450,7 @@ public final class CaptureEngine {
             while (cursor<data.length && (data[cursor]==13 || data[cursor]==10)) cursor++;
         }
     }
-    private void finish(Progress progress) throws IOException {
+    private void finish(Progress progress,boolean deferMedia) throws IOException {
         List<SignalingTransport.Data> signals=new ArrayList<>();int direction=0;
         for (TcpFlow f : tcp) {
             final int id=direction++;boolean gap=false;
@@ -531,9 +539,12 @@ public final class CaptureEngine {
             }
             result.streams.add(stream);
         }
-        if(progress!=null)progress.stage("媒体质量与按键分析");
-        QualityAnalyzer.attach(result.streams,new ArrayList<>(candidates.values()),result.reliableTimestamps);
-        KeyAnalysis.attach(result);
+        if(deferMedia){KeyAnalysis.attachSignaling(result);deferredCandidates=new ArrayList<>(candidates.values());}
+        else{
+            if(progress!=null)progress.stage("媒体质量与按键分析");
+            QualityAnalyzer.attach(result.streams,new ArrayList<>(candidates.values()),result.reliableTimestamps);
+            KeyAnalysis.attach(result);
+        }
         if(progress!=null)progress.stage("准备通话列表");
         result.events.sort(Comparator.comparingLong(e->e.firstSeenUs));
         candidates.clear();
