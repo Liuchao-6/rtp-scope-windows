@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.8/ChaogeHuatan-0.8.8-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.9/ChaogeHuatan-0.8.9-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.8.8 更新**：通话与信令就绪后即可查找和筛选，RTP 质量、音内按键与索引保存继续在后台完成。分析完成后自动更新结果，保留当前通话、搜索和页面；等待期间明确显示待分析状态。修复托盘右键菜单中文字显示成方框的问题。
+**0.8.9 更新**：修复 Windows 托盘右键菜单中文字显示成方框的问题，改用与主界面相同的 Swing 中文绘制方式；支持主窗口隐藏时弹出、方向键 / Enter / Esc、失焦关闭和屏幕边缘定位。
 
 ## 解决的痛点
 

@@ -2,17 +2,21 @@ package com.liuchao.rtpscope.desktop;
 
 import java.awt.*;
 import java.awt.event.*;
-import javax.swing.SwingUtilities;
+import java.util.*;
+import javax.swing.*;
 
-/** Optional visual check using the exact native menu factory used by the tray icon. */
+/** Visual check enters the registered tray icon's mouse listener after hiding the frame. */
 public final class TrayMenuPreview {
     public static void main(String[] args)throws Exception{
         SwingUtilities.invokeAndWait(()->{
-            Ui.setup();Frame frame=new Frame("超哥话探 · 托盘菜单显示检查");frame.setFont(Ui.font(13));
-            Label label=new Label("在这里右键，检查中文菜单；选退出关闭测试窗口",Label.CENTER);label.setFont(Ui.font(13));frame.add(label);
-            PopupMenu menu=TrayManager.NativeTray.menu(()->label.setText("已执行打开主界面操作"),frame::dispose);frame.add(menu);
-            MouseAdapter mouse=new MouseAdapter(){private void popup(MouseEvent event){if(event.isPopupTrigger())menu.show(event.getComponent(),event.getX(),event.getY());}public void mousePressed(MouseEvent e){popup(e);}public void mouseReleased(MouseEvent e){popup(e);}};label.addMouseListener(mouse);frame.addMouseListener(mouse);
-            frame.addWindowListener(new WindowAdapter(){public void windowClosing(WindowEvent event){frame.dispose();}});frame.setSize(500,220);frame.setLocationRelativeTo(null);frame.setVisible(true);
+            Ui.setup();JFrame frame=new JFrame("超哥话探 · 托盘回调检查");TrayManager.NativeTray tray=new TrayManager.NativeTray();
+            JLabel state=Ui.label("通过真实注册的托盘图标回调弹出菜单",13,Ui.INK);JPanel pane=new JPanel(new BorderLayout(10,14));pane.setBorder(BorderFactory.createEmptyBorder(22,22,22,22));pane.add(state,BorderLayout.NORTH);
+            JButton trigger=Ui.button("隐藏窗口并触发托盘右键事件",true);pane.add(trigger,BorderLayout.CENTER);frame.setContentPane(pane);
+            Set<TrayIcon> old=new HashSet<>(Arrays.asList(SystemTray.getSystemTray().getTrayIcons()));Runnable exit=()->{tray.remove();frame.dispose();};
+            try{tray.add(()->{frame.setVisible(true);frame.toFront();state.setText("已从托盘菜单恢复测试窗口");},exit);}catch(AWTException e){throw new RuntimeException(e);}
+            final TrayIcon icon=Arrays.stream(SystemTray.getSystemTray().getTrayIcons()).filter(item->!old.contains(item)).findFirst().get();
+            trigger.addActionListener(e->{Point point=MouseInfo.getPointerInfo().getLocation();frame.setVisible(false);TrayTest.rightClick(icon,point);});
+            frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);frame.addWindowListener(new WindowAdapter(){public void windowClosing(WindowEvent event){exit.run();}});frame.setSize(480,200);frame.setLocationRelativeTo(null);frame.setVisible(true);
         });
     }
 }

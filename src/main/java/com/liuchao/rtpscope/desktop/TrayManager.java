@@ -75,21 +75,18 @@ final class TrayManager extends WindowAdapter implements AutoCloseable {
 
     static final class NativeTray implements Tray {
         private TrayIcon icon;
+        TrayPopup popup;
         public boolean supported(){return SystemTray.isSupported();}
-        static PopupMenu menu(Runnable restore,Runnable exit){
-            Font font=Ui.font(13);PopupMenu menu=new PopupMenu();menu.setFont(font);
-            MenuItem open=new MenuItem("打开主界面"),quit=new MenuItem("退出程序");
-            // Windows AWT menu peers do not reliably inherit the popup's Chinese font.
-            // Set each item's font before its native peer is created.
-            open.setFont(font);quit.setFont(font);
-            open.addActionListener(e->SwingUtilities.invokeLater(restore));quit.addActionListener(e->SwingUtilities.invokeLater(exit));menu.add(open);menu.addSeparator();menu.add(quit);return menu;
-        }
         public void add(Runnable restore,Runnable exit)throws AWTException {
             if(icon!=null)return;
-            SystemTray system=SystemTray.getSystemTray();PopupMenu menu=menu(restore,exit);
-            Dimension size=system.getTrayIconSize();TrayIcon candidate=new TrayIcon(Ui.icon().getScaledInstance(size.width,size.height,Image.SCALE_SMOOTH),"超哥话探 · 双击打开主界面",menu);candidate.setImageAutoSize(true);candidate.addActionListener(e->SwingUtilities.invokeLater(restore));
+            SystemTray system=SystemTray.getSystemTray();
+            Dimension size=system.getTrayIconSize();final TrayIcon candidate=new TrayIcon(Ui.icon().getScaledInstance(size.width,size.height,Image.SCALE_SMOOTH),"超哥话探 · 双击打开主界面");candidate.setImageAutoSize(true);candidate.addActionListener(e->SwingUtilities.invokeLater(restore));
+            candidate.addMouseListener(new MouseAdapter(){public void mouseReleased(MouseEvent event){
+                if(!event.isPopupTrigger()&&event.getButton()!=MouseEvent.BUTTON3)return;final Point point=event.getPoint();
+                SwingUtilities.invokeLater(()->{if(icon!=candidate)return;if(popup==null)popup=new TrayPopup(restore,exit);popup.show(point);});
+            }});
             try{system.add(candidate);icon=candidate;}catch(AWTException|RuntimeException e){system.remove(candidate);throw e;}
         }
-        public void remove(){if(icon!=null){SystemTray.getSystemTray().remove(icon);icon=null;}}
+        public void remove(){if(icon!=null){SystemTray.getSystemTray().remove(icon);icon=null;}if(popup!=null){popup.close();popup=null;}}
     }
 }
