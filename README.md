@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.6/ChaogeHuatan-0.8.6-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.7/ChaogeHuatan-0.8.7-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.8.6 更新**：新增 Windows 检查更新，可查看 GitHub 正式版及更新说明，支持启动检查、手动检查和忽略版本。旧用户首次需手动下载升级，已导入的离线模型无需重新下载。
+**0.8.7 更新**：关闭窗口时可选择隐藏到托盘、退出程序或取消。隐藏期间当前任务继续运行，双击托盘图标或通过托盘菜单恢复主界面；退出时停止任务并清理资源。
 
 ## 解决的痛点
 
@@ -33,6 +33,7 @@
 - **媒体编码**：G.711、G.729 / G.729A、Opus、G.722，以及常用 AMR-NB / AMR-WB RTP 封装。
 - **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
 - **检查更新**：启动后每 24 小时最多查询一次 GitHub 正式版，也可手动检查；显示更新说明，支持稍后提醒、忽略此版本和关闭启动检查。下载通过浏览器打开官方发布页。
+- **关闭与托盘**：关闭窗口时可选择隐藏到托盘、退出程序或取消；双击托盘图标或通过托盘菜单恢复主界面，隐藏期间当前任务继续运行。
 
 ## 使用
 
@@ -41,6 +42,8 @@
 3. 双击媒体流显示波形；「试听设置」控制方向、声道、倍速及循环。「导出 WAV」生成一个文件，每路方向独立声道，按波形从上到下排列并按抓包时间对齐；试听静音和倍速不改变导出内容。
 4. 转写前下载配套模型 ZIP，在「录音转文字」中「导入模型包」，无需解压。再导入录音，或从 RTP 页「转写当前通话」。
 5. 点击右上角「检查更新」查看新版；「更多 → 启动时检查更新」可关闭自动查询。下载后完整解压到新目录，关闭旧版再运行；用户目录中的模型和索引可继续使用。旧版首次需手动升级，才能获得检查更新功能。
+
+关闭窗口时选择「隐藏到托盘」可继续运行当前任务；双击通知区域中的图标，或右键选择「打开主界面」恢复窗口。选择「退出程序」停止任务并关闭软件，正在本机抓包时会再确认。系统托盘不可用或注册失败时保留主窗口。
 
 录音支持 WAV、MP3、M4A / AAC、FLAC，最长 60 分钟。配套推荐 SenseVoice Small int8，中文结果统一转为简体，仍可切换 Whisper；也可导入同一套 encoder、decoder 与 tokens 的 Whisper base ONNX ZIP。时间戳表示原录音中的语音片段范围，不保证逐字对齐，识别内容请回听确认。
 
