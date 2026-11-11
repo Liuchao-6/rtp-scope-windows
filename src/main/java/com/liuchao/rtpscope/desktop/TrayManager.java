@@ -20,11 +20,14 @@ final class TrayManager extends WindowAdapter implements AutoCloseable {
     private boolean choosing,exiting,closed;
 
     TrayManager(JFrame frame,BooleanSupplier confirmExit,Runnable cleanup){
+        this(frame,confirmExit,cleanup,()->false,()->{});
+    }
+    TrayManager(JFrame frame,BooleanSupplier confirmExit,Runnable cleanup,BooleanSupplier capturing,Runnable stopCapture){
         this(new Host(){
             public void hide(){frame.setVisible(false);}
             public void restore(){frame.setExtendedState(frame.getExtendedState()&~Frame.ICONIFIED);frame.setVisible(true);frame.toFront();frame.requestFocus();}
             public void dispose(){frame.dispose();}
-        },new NativeTray(),new Prompt(){
+        },new NativeTray(capturing,stopCapture),new Prompt(){
             public Choice choose(boolean canHide){return chooseClose(frame,canHide);}
             public void unavailable(){JOptionPane.showMessageDialog(frame,"暂时无法使用系统托盘，主窗口已保留。\n可以再次关闭并选择退出，或继续使用。","隐藏到托盘未完成",JOptionPane.INFORMATION_MESSAGE);}
         },confirmExit,cleanup);
@@ -75,6 +78,9 @@ final class TrayManager extends WindowAdapter implements AutoCloseable {
 
     static final class NativeTray implements Tray {
         private TrayIcon icon;
+        private final BooleanSupplier capturing;private final Runnable stopCapture;
+        NativeTray(){this(()->false,()->{});}
+        NativeTray(BooleanSupplier capturing,Runnable stopCapture){this.capturing=capturing;this.stopCapture=stopCapture;}
         TrayPopup popup;
         public boolean supported(){return SystemTray.isSupported();}
         public void add(Runnable restore,Runnable exit)throws AWTException {
@@ -83,7 +89,7 @@ final class TrayManager extends WindowAdapter implements AutoCloseable {
             Dimension size=system.getTrayIconSize();final TrayIcon candidate=new TrayIcon(Ui.icon().getScaledInstance(size.width,size.height,Image.SCALE_SMOOTH),"超哥话探 · 双击打开主界面");candidate.setImageAutoSize(true);candidate.addActionListener(e->SwingUtilities.invokeLater(restore));
             candidate.addMouseListener(new MouseAdapter(){public void mouseReleased(MouseEvent event){
                 if(!event.isPopupTrigger()&&event.getButton()!=MouseEvent.BUTTON3)return;final Point point=event.getPoint();
-                SwingUtilities.invokeLater(()->{if(icon!=candidate)return;if(popup==null)popup=new TrayPopup(restore,exit);popup.show(point);});
+                SwingUtilities.invokeLater(()->{if(icon!=candidate)return;if(popup!=null)popup.close();popup=new TrayPopup(restore,exit,capturing.getAsBoolean()?stopCapture:null);popup.show(point);});
             }});
             try{system.add(candidate);icon=candidate;}catch(AWTException|RuntimeException e){system.remove(candidate);throw e;}
         }

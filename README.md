@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.11/ChaogeHuatan-0.8.11-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.10.0/ChaogeHuatan-0.10.0-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [抓包图文教程](docs/windows-capture.md) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.8.11 更新**：主界面新增「体验演示」入口；内置约 3.7 MiB、23 通合成通话，覆盖全部支持编码、三类双向完整按键、质量异常、转接和 TLS / WSS 分别导入密钥演示。
+**0.10.0**：新增本机抓包，支持多网卡、分卷 / 循环保存、实时通话查找、通话保留、不中断抓包的分析快照和本地任务恢复。抓包需另装 Npcap。
 
 ## 解决的痛点
 
@@ -33,7 +33,26 @@
 - **媒体编码**：G.711、G.729 / G.729A、Opus、G.722，以及常用 AMR-NB / AMR-WB RTP 封装。
 - **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
 - **检查更新**：启动后每 24 小时最多查询一次 GitHub 正式版，也可手动检查；显示更新说明，支持稍后提醒、忽略此版本和关闭启动检查。下载通过浏览器打开官方发布页。
+- **本机抓包**：最多 8 张网卡统一过滤、保留接口来源；单文件、分卷保留或循环覆盖，空间 / 时长控制；实时 SIP / RTP、2833 / INFO 速览、保留通话和分析快照；支持本地历史任务与异常中断恢复。
 - **关闭与托盘**：关闭窗口时可选择隐藏到托盘、退出程序或取消；双击托盘图标或通过托盘菜单恢复主界面，隐藏期间当前任务继续运行。
+
+## 本机抓包
+
+切换到「本机抓包」，从 [Npcap 官网](https://npcap.com/#download) 安装驱动后点「重新检测」。软件自带抓包组件；Npcap 需另装，导入已有文件可独立使用。以下配图由当前版本界面渲染，使用合成示例通话、网卡与任务状态。
+
+**1. 设置抓包**：Ctrl / Shift 多选最多 8 张网卡，统一填写 IP / CIDR、协议、端口或高级 BPF。支持单文件、分卷保留、循环覆盖，每卷 128～768 MiB、任务空间 2～16 GiB，可指定停止时长并保存本机方案。仅限制 SIP 端口可能漏掉动态 RTP。
+
+![多网卡、过滤条件、循环保存与本机抓包方案](docs/images/capture-settings.png)
+
+**2. 找通话并查看快照**：按号码、IP、Call-ID、时间或状态查找，查看信令、媒体方向 / 编码与 2833 / INFO 按键。抓包中点「查看通话快照」进入完整分析，继续播放、看波形、体检、转写和导出；原任务持续抓包，快照固定到生成时的报文边界。
+
+![按通话查看 SIP、RTP 编码与按键摘要](docs/images/capture-live-calls.png)
+
+**3. 保留与回看**：「保留通话」保护关联分卷和后续分卷至通话结束后 2 秒；循环模式只覆盖最早、已封存且未保留的分卷，保留内容占满预算时停止。「文件与任务」支持按分卷 / 时间生成快照、打开历史任务及恢复异常中断目录。
+
+实时速览有内存与读取上限，不实时解码音频和 In-band；TLS / WSS 先显示连接线索，快照后分别导入密钥。快照超过 768 MiB 自动分段，TCP / TLS 通话可能包含同连接其他通话。原始 PCAPNG 保留接口来源与重复包。
+
+[查看完整图文教程：报文详情、保存方式、通话保留、范围快照、恢复与常见问题 →](docs/windows-capture.md)
 
 ## 内置演示
 
@@ -95,7 +114,7 @@
 - TCP / TLS 单通话导出会包含完整关联连接，同连接可能存在其他通话。报告遮蔽不改变原始 PCAP 和音频。
 - 对照未见、序号缺口与到达延迟只反映当前抓包所见；候选关联不等于已确认同一通话，声道不等于人物身份。
 - 未加载解密密钥时复用解析索引；文件、解析版本或密钥变化时重新分析。索引存于用户目录 `.chaoge-huatan/index`，最多约 2 GiB；媒体临时缓存另需预留空间。
-- 最多 2000 万包、3 万条 SIP 消息，TCP 重组上限 24 MiB。离线分析无需 Wireshark；「本机抓包」需另装 tshark / Npcap。
+- 最多 2000 万包、3 万条 SIP 消息，TCP 重组上限 24 MiB。离线分析无需 Wireshark；「本机抓包」需另装 Npcap。
 - 检查更新只读取 GitHub 公开版本信息，不上传抓包、录音或密钥；无需 GitHub 登录。网络不可用时仍可分析本地文件，启动检查失败时不弹窗。更新设置存于用户目录 `.chaoge-huatan/update.properties`；支持系统代理，网络环境仍需能访问 GitHub。
 
 ## 构建

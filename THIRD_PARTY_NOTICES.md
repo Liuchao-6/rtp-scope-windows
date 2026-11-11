@@ -20,7 +20,7 @@ The complete upstream license is retained inside the dependency JAR and in `src/
 
 ## Build and test tools
 
-Eclipse ECJ is a build-only compiler and is not shipped in the portable application or source ZIP. FFmpeg was used as an independent decoder oracle for the synthetic G.729 reference fixture; FFmpeg is not included. Wireshark / tshark and Npcap are optional, separately installed tools and are not bundled.
+Eclipse ECJ is a build-only compiler and is not shipped in the portable application or source ZIP. FFmpeg was used as an independent decoder oracle for the synthetic G.729 reference fixture; FFmpeg is not included. Npcap is an optional, separately installed capture driver and is not bundled. The application-owned HuatanCapture.exe loads the user-installed Npcap API at runtime. No Npcap SDK files, DLLs, installers or drivers are redistributed; Wireshark / tshark is not required.
 
 
 ## Concentus Opus

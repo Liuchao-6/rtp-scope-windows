@@ -84,3 +84,6 @@ FFmpeg 7.1 Gyan essentials: GPL-3.0-or-later. Full GPLv3 is embedded at licenses
 
 SenseVoice Small: FunAudioLLM; int8 conversion by csukuangfj / k2-fsa. Separate model package includes the FunASR Model Open Source License Agreement v1.1 and original license reference.
 OpenCC 1.1.9 dictionaries: Apache-2.0, https://github.com/BYVoid/OpenCC/tree/ver.1.1.9 ; full license in licenses/opencc-LICENSE.txt.
+
+本机抓包
+HuatanCapture.exe 为本应用的抓包组件，运行时访问用户独立安装的 Npcap。软件不附带 Npcap SDK、DLL、安装器或驱动，不需要 Wireshark / tshark。Npcap 的使用与许可条件请查看 https://npcap.com/license 。

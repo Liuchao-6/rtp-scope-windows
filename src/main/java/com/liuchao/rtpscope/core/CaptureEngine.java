@@ -117,7 +117,23 @@ public final class CaptureEngine {
     private long packetLimit=500000;
     private long inputLimit=MAX_FILE;
     private PacketSink packetSink;
-    public interface PacketSink {void accept(byte[] packet,int link,long timeUs,String src,String dst,int protocol,byte[] payload)throws IOException;}
+    public interface PacketSink {
+        void accept(byte[] packet,int link,long timeUs,String src,String dst,int protocol,byte[] payload)throws IOException;
+        default void tcpHeader(long sequence,int flags){}
+    }
+    /** Single-packet inspection for a bounded live index; never stores media payloads. */
+    public static final class PacketInspector {
+        private final CaptureEngine engine=new CaptureEngine();
+        public PacketInspector(PacketSink sink){engine.packetSink=Objects.requireNonNull(sink);engine.packetLimit=Long.MAX_VALUE;}
+        public void accept(byte[] packet,int link,long timeUs)throws IOException{engine.packet(packet,link,timeUs);engine.result.warnings.clear();}
+    }
+    public static List<SipMessage> parseSignaling(byte[] data,String src,String dst,String transport,long timeUs)throws IOException {
+        CaptureEngine engine=new CaptureEngine();engine.sip(data,src,dst,transport,timeUs);return engine.result.sip;
+    }
+    public static boolean looksLikeSip(byte[] data){return looksSip(data,0);}
+    static List<SipMessage> parseSignaling(byte[] data,String src,String dst,String transport,long timeUs,List<Span> spans)throws IOException {
+        CaptureEngine engine=new CaptureEngine();engine.sip(data,src,dst,transport,timeUs,spans);return engine.result.sip;
+    }
     public static void visitPackets(InputStream input,PacketSink sink)throws IOException{
         CaptureEngine engine=new CaptureEngine();engine.inputLimit=MAX_DESKTOP_FILE;engine.packetLimit=20000000;engine.packetSink=sink;read(input,engine,null);
     }
@@ -341,7 +357,13 @@ public final class CaptureEngine {
         if (p+8 > end) return;
         int sp = u16(data,p,false), dp = u16(data,p+2,false);
         String source = endpoint(src,sp), destination = endpoint(dst,dp);
-        if(packetSink!=null){int offset=proto==17?p+8:proto==6&&p+20<=end?p+((data[p+12]&255)>>>4)*4:end;if(offset<=end)packetSink.accept(data,link,time,source,destination,proto,Arrays.copyOfRange(data,offset,end));return;}
+        if(packetSink!=null){
+            int offset,stop=end;
+            if(proto==17){int len=u16(data,p+4,false);if(len<8||p+len>end)return;offset=p+8;stop=p+len;}
+            else if(proto==6&&p+20<=end){int h=((data[p+12]&255)>>>4)*4;if(h<20||p+h>end)return;offset=p+h;packetSink.tcpHeader(u32(data,p+4,false),data[p+13]&255);}
+            else return;
+            packetSink.accept(data,link,time,source,destination,proto,Arrays.copyOfRange(data,offset,stop));return;
+        }
         if (proto == 17) {
             int len = u16(data,p+4,false);
             if (len < 8 || p+len > end) { result.warn("UDP 包不完整"); return; }

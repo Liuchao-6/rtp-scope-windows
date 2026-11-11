@@ -17,14 +17,13 @@ import com.liuchao.rtpscope.core.CaptureEngine.*;
 
 /** Windows desktop shell. Parsing/decoding/file operations run outside the Swing event thread. */
 public final class DesktopApp extends JPanel {
-    public static final String VERSION="0.8.11";
+    public static final String VERSION="0.10.0";
     private final UpdateManager updates=new UpdateManager(this);
     public final DesktopModel model=new DesktopModel();
     public final FlowPanel flow=new FlowPanel();
     public final SipDetailPanel detail=new SipDetailPanel();
     public final WaveformPanel waveform=new WaveformPanel();
     private final WavPlayer player=new WavPlayer();
-    private final CaptureSession capture=new CaptureSession();
     private final JTextField search=new JTextField();
     private final JTextField callQuick=new JTextField();
     private final JButton tlsKeyButton=Ui.button("解密密钥",false);
@@ -64,7 +63,7 @@ public final class DesktopApp extends JPanel {
     private String pendingQualityText;
     private final List<JButton> mediaActions=new ArrayList<>();
     private final List<JButton> callMediaActions=new ArrayList<>();
-    private File currentWav,captureFile,captureLog;
+    private File currentWav;
     private String fileName="";
     private boolean busy,closed,updatingSeek,updatingCalls,updatingFiles,playerExpanded,refreshingMedia;
     private long pendingSeek;
@@ -83,7 +82,7 @@ public final class DesktopApp extends JPanel {
         tlsKeyButton.setName("importTlsKeys");tlsKeyButton.setToolTipText("分别导入 RSA 私钥或 TLS key log，可在导入抓包前后加载");tlsKeyButton.addActionListener(e->chooseTlsKeys());actions.add(tlsKeyButton);
         JButton callMenu=Ui.button("通话工具",false),more=Ui.button("更多",false);actions.add(callMenu);actions.add(more);actions.add(cancelImport);cancelImport.setName("cancelImport");cancelImport.setVisible(false);cancelImport.addActionListener(e->{if(importTask!=null)importTask.cancel(true);else stopMediaTask(true);});
         callMenu.addActionListener(e->{JPopupMenu menu=new JPopupMenu();for(String label:new String[]{"通话体检","导出当前通话","通话关联","抓包对照"}){JMenuItem item=new JMenuItem(label);item.setEnabled(!busy&&!mediaPending&&!model.callId.isEmpty());if(model.callId.isEmpty())item.setToolTipText("请先在左侧选择一通电话");item.addActionListener(v->{if(label.equals("通话体检"))tabs.setSelectedIndex(4);else if(label.startsWith("导出"))callTools.export();else if(label.equals("通话关联"))callTools.links();else callTools.compare();});menu.add(item);}menu.show(callMenu,0,callMenu.getHeight());});
-        more.addActionListener(e->{JPopupMenu menu=new JPopupMenu();for(String label:new String[]{"演示说明","启动 / 停止抓包","分析提示","关于"}){JMenuItem item=new JMenuItem(label);item.addActionListener(v->{if(label.equals("演示说明"))showDemoGuide();else if(label.startsWith("启动"))captureButton.doClick();else if(label.equals("分析提示"))showWarnings();else about();});menu.add(item);}menu.addSeparator();JMenuItem check=new JMenuItem("检查更新");check.addActionListener(v->updates.check(true));menu.add(check);JCheckBoxMenuItem automatic=new JCheckBoxMenuItem("启动时检查更新",updates.automatic());automatic.addActionListener(v->updates.automatic(automatic.isSelected()));menu.add(automatic);menu.show(more,0,more.getHeight());});
+        more.addActionListener(e->{JPopupMenu menu=new JPopupMenu();for(String label:new String[]{"演示说明","本机抓包","分析提示","关于"}){JMenuItem item=new JMenuItem(label);item.addActionListener(v->{if(label.equals("演示说明"))showDemoGuide();else if(label.equals("本机抓包"))captureButton.doClick();else if(label.equals("分析提示"))showWarnings();else about();});menu.add(item);}menu.addSeparator();JMenuItem check=new JMenuItem("检查更新");check.addActionListener(v->updates.check(true));menu.add(check);JCheckBoxMenuItem automatic=new JCheckBoxMenuItem("启动时检查更新",updates.automatic());automatic.addActionListener(v->updates.automatic(automatic.isSelected()));menu.add(automatic);menu.show(more,0,more.getHeight());});
         search.setPreferredSize(new Dimension(Ui.u(260),Ui.u(35)));search.putClientProperty("JTextField.placeholderText","搜索当前通话的报文、编码或按键");search.setToolTipText("左侧找通话；这里筛选 IP、端口、SIP 方法、正文、编码或按键");JPanel searchArea=new JPanel(new BorderLayout(Ui.u(5),0));searchArea.setOpaque(false);searchArea.add(search,BorderLayout.CENTER);JButton clear=Ui.button("清空",false);searchArea.add(clear,BorderLayout.EAST);JButton about=Ui.button("关于",false);tools.add(actions,BorderLayout.CENTER);tools.add(searchArea,BorderLayout.EAST);
         JPanel fileInfo=new JPanel(new BorderLayout(Ui.u(14),0));fileInfo.setBackground(Ui.BG);fileDisplay.setOpaque(false);fileDisplay.add(fileTitle,"empty");
         JPanel fileControls=new JPanel(new BorderLayout(Ui.u(7),0));fileControls.setOpaque(false);fileSelector.setName("captureFiles");fileSelector.setMinimumSize(new Dimension(Ui.u(160),Ui.u(32)));fileSelector.setToolTipText("切换抓包文件，各文件独立分析；再次导入可追加文件");fileSelector.getAccessibleContext().setAccessibleName("切换抓包文件");
@@ -256,6 +255,12 @@ public final class DesktopApp extends JPanel {
             protected void done(){if(closed)return;setBusy(false,"");try{tlsKeys=get();saveCaptureView();updateButtons();if(captureFiles.current()!=null)openCapture(captureFiles.activeIndex());else status("已加载 "+tlsKeys.size()+" 条 TLS 会话密钥，可单独导入抓包");}catch(Exception e){error(e);}}}.execute();
     }
     public void clearTlsKeys(){if(busy||closed)return;stopMediaTask(false);saveCaptureView();tlsKeys=TlsKeyLog.empty();updateButtons();if(captureFiles.current()!=null)openCapture(captureFiles.activeIndex());else status("TLS 会话密钥已清除");}
+    private final Map<String,String> captureNotices=new HashMap<>();
+    void loadCaptureSnapshot(File file,String callId,String context){
+        if(busy||closed)return;load(file);CaptureWorkspace.Entry<File> entry=captureFiles.current();if(entry==null)return;
+        if(!callId.isEmpty()){entry.callId=callId;savedCaptureViews.add(entry.id);}
+        if(!context.isEmpty())captureNotices.put(entry.id,context);
+    }
     public void load(File file) {
         if(busy||closed)return;if(file!=null){loadFiles(Collections.singletonList(file));return;}saveCaptureView();int index=captureFiles.add("demo:","演示 · 23 场景 / 全编码 / 三类按键",null);openCapture(index);
     }
@@ -321,11 +326,13 @@ public final class DesktopApp extends JPanel {
     private void startMediaAnalysis(DeferredCapture prepared,AnalysisCache cache,String key)throws IOException{
         stopMediaTask(false);mediaPending=true;if(tabs.getSelectedIndex()==4)tabs.setSelectedIndex(0);
         mediaTask=new MediaTask(prepared,cache,key);refreshViews();updateSummary();
-        detail.showText("通话与信令已就绪",fileName,(prepared.signaling.partial?"文件不完整，已保留可解析的报文。\n\n":"")+"现在可以查找通话、查看 SIP 流序及 RFC 2833 / SIP INFO 按键。\n\n媒体质量与 In-band 按键正在后台分析，完成后可播放、转写和导出。\n后台保存索引期间也可继续使用。");
+        detail.showText("通话与信令已就绪",fileName,(captureFiles.current()==null?"":captureNotices.getOrDefault(captureFiles.current().id,"")+"\n")+(prepared.signaling.partial?"文件不完整，已保留可解析的报文。\n\n":"")+"现在可以查找通话、查看 SIP 流序及 RFC 2833 / SIP INFO 按键。\n\n媒体质量与 In-band 按键正在后台分析，完成后可播放、转写和导出。\n后台保存索引期间也可继续使用。");
+        mediaTask.introText=detail.original();
         status("通话可查看 · 正在后台分析媒体与音内按键…");mediaTask.execute();
     }
     private void stopMediaTask(boolean notify){
         MediaTask task=mediaTask;mediaTask=null;if(task!=null){task.cancel(true);task.releaseIfNotStarted();}
+        if(notify&&task!=null&&task.showingIntro())detail.showText("后台媒体分析已停止",fileName,"信令仍可继续查看；重新导入当前文件可继续媒体分析。");
         if(notify){updateButtons();status(mediaPending?"后台分析已停止，信令可继续查看；重新导入可继续媒体分析":"索引保存已停止，本次分析仍可使用");}
     }
     private void updateSummary(){
@@ -336,9 +343,10 @@ public final class DesktopApp extends JPanel {
     }
     private final class MediaTask extends SwingWorker<Void,MediaUpdate>{
         final DeferredCapture prepared;final AnalysisCache cache;final String key;final Closeable lease;
-        boolean started,released,applied;Analysis complete;String cacheWarning="";
+        boolean started,released,applied;Analysis complete;String cacheWarning="",introText;
         MediaTask(DeferredCapture prepared,AnalysisCache cache,String key)throws IOException{this.prepared=prepared;this.cache=cache;this.key=key;lease=prepared.signaling.mediaStore.retain();}
         private boolean current(){return !closed&&mediaTask==this&&model.analysis==prepared.signaling;}
+        private boolean showingIntro(){return introText!=null&&introText.equals(detail.original());}
         private synchronized void release(){if(released)return;released=true;try{lease.close();}catch(IOException ignored){}}
         synchronized void releaseIfNotStarted(){if(!started)release();}
         protected Void doInBackground()throws Exception{
@@ -351,7 +359,7 @@ public final class DesktopApp extends JPanel {
             }finally{release();}
         }
         private void applyResult(){
-            if(applied||complete==null)return;boolean viewingQuality=pendingQualityText!=null&&pendingQualityText.equals(detail.original());
+            if(applied||complete==null)return;boolean viewingQuality=pendingQualityText!=null&&pendingQualityText.equals(detail.original()),viewingIntro=showingIntro();
             JTable[] tables={sipTable,rtpTable,eventTable};List<?>[] rows={messages,streams,events};Object[] selected=new Object[3];List<List<? extends RowSorter.SortKey>> sortKeys=new ArrayList<>();
             for(int i=0;i<3;i++){int at=index(tables[i]);selected[i]=at<0?null:rows[i].get(at);sortKeys.add(new ArrayList<>(tables[i].getRowSorter().getSortKeys()));}
             refreshingMedia=true;try{
@@ -359,6 +367,7 @@ public final class DesktopApp extends JPanel {
                 for(int i=0;i<3;i++){tables[i].getRowSorter().setSortKeys(sortKeys.get(i));int at=updated[i].indexOf(selected[i]);if(at>=0){at=tables[i].convertRowIndexToView(at);tables[i].setRowSelectionInterval(at,at);}}
             }finally{refreshingMedia=false;}
             updateSummary();if(viewingQuality&&inspectedStream!=null)showQuality(inspectedStream);
+            else if(viewingIntro)detail.showText("通话分析已完成",fileName,(prepared.signaling.partial?"文件不完整，已分析可解析的报文。\n\n":"")+"信令、媒体质量和按键分析已完成。\n\n可以查看通话体检、播放或转写通话，并导出录音和报告；点击流序图或列表中的条目查看详情。");
         }
         protected void process(List<MediaUpdate> values){
             if(!current()||isCancelled())return;for(MediaUpdate value:values)if(value.result!=null)applyResult();if(!busy&&!values.isEmpty())status(values.get(values.size()-1).text);
@@ -366,7 +375,7 @@ public final class DesktopApp extends JPanel {
         protected void done(){
             releaseIfNotStarted();if(!current())return;
             try{get();applyResult();if(!cacheWarning.isEmpty())prepared.signaling.warn(cacheWarning);if(!busy)status(cacheWarning.isEmpty()?"分析完成 · "+prepared.signaling.calls.size()+" 通话 · "+prepared.signaling.warnings.size()+" 项分析提示":cacheWarning+"；本次分析仍可使用");}
-            catch(Exception e){if(!busy)status("后台媒体分析未完成，信令仍可查看；重新导入可重试 · "+Ui.error(e));}
+            catch(Exception e){if(showingIntro())detail.showText("媒体分析未完成",fileName,"信令仍可继续查看；重新导入当前文件可重试。\n\n"+Ui.error(e));if(!busy)status("后台媒体分析未完成，信令仍可查看；重新导入可重试 · "+Ui.error(e));}
             finally{mediaTask=null;updateButtons();updateSummary();}
         }
     }
@@ -412,7 +421,7 @@ public final class DesktopApp extends JPanel {
         }.execute();
     }
     private void discardAudio(){player.close();player.setLoop(-1,-1);if(routedWav!=null)routedWav.delete();routedWav=null;audible=null;loopA=loopB=-1;if(waveform.preview()!=null)waveform.preview().close();File old=currentWav;currentWav=null;audioStreams=new ArrayList<>();pendingSeek=0;waveform.setData(null);keySummary.setText("生成波形后显示按键信息");if(old!=null&&!old.delete())old.deleteOnExit();audioTitle.setText("选择媒体流，还原音频后显示波形");}
-    private void updateButtons(){for(JButton button:mediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null);button.setToolTipText(mediaPending?"媒体尚未分析完成，完成后可使用":"");}for(JButton button:callMediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null&&!model.callId.isEmpty());if(!mediaPending&&model.callId.isEmpty())button.setToolTipText("请先在左侧选择一通电话");}tabs.setEnabledAt(4,!mediaPending);cancelImport.setVisible(importTask!=null||mediaTask!=null);cancelImport.setText(importTask!=null?"取消导入":"停止后台任务");importButton.setEnabled(!busy);tlsKeyButton.setEnabled(!busy);tlsKeyButton.setText(tlsKeys.size()+rsaKeys.size()==0?"解密密钥":"解密密钥 · "+(tlsKeys.size()+rsaKeys.size()));tlsKeyButton.setToolTipText("RSA 私钥 "+rsaKeys.size()+" 把 / TLS key log "+tlsKeys.size()+" 条；点击可分别导入或清除");demoButton.setEnabled(!busy);callQuick.setEnabled(!busy);callAdvanced.setEnabled(!busy);captureButton.setEnabled(!busy);fileSelector.setEnabled(!busy);closeFile.setEnabled(!busy&&captureFiles.size()>0);playSelected.setEnabled(!busy&&!mediaPending&&model.analysis!=null);toggle.setEnabled(!busy&&currentWav!=null);export.setEnabled(!busy&&currentWav!=null);updateCompactPlayer();}
+    private void updateButtons(){for(JButton button:mediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null);button.setToolTipText(mediaPending?"媒体尚未分析完成，完成后可使用":"");}for(JButton button:callMediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null&&!model.callId.isEmpty());if(!mediaPending&&model.callId.isEmpty())button.setToolTipText("请先在左侧选择一通电话");}tabs.setEnabledAt(4,!mediaPending);cancelImport.setVisible(importTask!=null||mediaTask!=null);cancelImport.setText(importTask!=null?"取消导入":"停止后台任务");importButton.setEnabled(!busy);tlsKeyButton.setEnabled(!busy);tlsKeyButton.setText(tlsKeys.size()+rsaKeys.size()==0?"解密密钥":"解密密钥 · "+(tlsKeys.size()+rsaKeys.size()));tlsKeyButton.setToolTipText("RSA 私钥 "+rsaKeys.size()+" 把 / TLS key log "+tlsKeys.size()+" 条；点击可分别导入或清除");demoButton.setEnabled(!busy);callQuick.setEnabled(!busy);callAdvanced.setEnabled(!busy);captureButton.setEnabled(true);fileSelector.setEnabled(!busy);closeFile.setEnabled(!busy&&captureFiles.size()>0);playSelected.setEnabled(!busy&&!mediaPending&&model.analysis!=null);toggle.setEnabled(!busy&&currentWav!=null);export.setEnabled(!busy&&currentWav!=null);updateCompactPlayer();}
     private void setBusy(boolean value,String text){busy=value;updateButtons();if(!text.isEmpty())status(text);setCursor(Cursor.getPredefinedCursor(value?Cursor.WAIT_CURSOR:Cursor.DEFAULT_CURSOR));}
     private void status(String text){status.setText(text);status.setToolTipText(text);}
     private void error(Throwable error){String message=Ui.error(error);status("操作未完成："+message);if(!GraphicsEnvironment.isHeadless())JOptionPane.showMessageDialog(this,message,"超哥话探",JOptionPane.ERROR_MESSAGE);}
@@ -423,9 +432,11 @@ public final class DesktopApp extends JPanel {
     private void closeCaptureDialogs(){for(JDialog dialog:new ArrayList<>(captureDialogs))dialog.dispose();captureDialogs.clear();}
     private void expandFlow(){JDialog dialog=new JDialog((Frame)SwingUtilities.getWindowAncestor(this),"通话流序图",false);trackCaptureDialog(dialog);FlowPanel expanded=new FlowPanel();expanded.setData(model.flow());expanded.setOpenListener(o->{openEntry(o);});dialog.setContentPane(expanded.scrollPane());Ui.fitWindow(dialog,1100,760,600,400);dialog.setLocationRelativeTo(this);dialog.setVisible(true);}
     private void installDrop(){setTransferHandler(new TransferHandler(){public boolean canImport(TransferSupport s){return !busy&&s.isDataFlavorSupported(DataFlavor.javaFileListFlavor);}public boolean importData(TransferSupport s){if(!canImport(s))return false;try{List<?> values=(List<?>)s.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);List<File> files=new ArrayList<>();for(Object value:values)if(value instanceof File)files.add((File)value);if(!files.isEmpty()){loadFiles(files);return true;}}catch(Exception e){error(e);}return false;}});}
-    private void captureAction(){if(captureFile!=null){stopCapture();return;}File located=CaptureSession.findTshark();if(located==null){JOptionPane.showMessageDialog(this,"本机抓包需要已安装 Wireshark 和 Npcap。\n可以选择 tshark.exe 的位置；已有抓包可直接导入。","本机抓包",JOptionPane.INFORMATION_MESSAGE);JFileChooser picker=new JFileChooser();picker.setDialogTitle("选择已安装的 tshark.exe");if(picker.showOpenDialog(this)!=JFileChooser.APPROVE_OPTION)return;located=picker.getSelectedFile();}final File tshark=located;setBusy(true,"正在读取可抓包网卡…");new SwingWorker<List<String>,Void>(){protected List<String> doInBackground()throws Exception{return CaptureSession.listInterfaces(tshark);}protected void done(){if(closed)return;setBusy(false,"");try{List<String> found=get();String iface=(String)JOptionPane.showInputDialog(DesktopApp.this,"选择要抓包的网卡","本机抓包",JOptionPane.QUESTION_MESSAGE,null,found.toArray(),found.get(0));if(iface==null)return;JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new File("chaoge-huatan-capture-"+System.currentTimeMillis()+".pcapng"));if(chooser.showSaveDialog(DesktopApp.this)!=JFileChooser.APPROVE_OPTION)return;File out=chooser.getSelectedFile();if(out.exists()){JOptionPane.showMessageDialog(DesktopApp.this,"请选择一个尚不存在的文件名");return;}captureLog=File.createTempFile("chaoge-huatan-capture-",".log");capture.start(tshark,iface.substring(0,iface.indexOf('.')),out,captureLog);captureFile=out;captureButton.setText("停止抓包并导入");status("正在抓包："+out.getAbsolutePath()+" · 停止后自动导入");}catch(Exception e){error(e);}}}.execute();}
-    private void stopCapture(){if(captureFile==null)return;File output=captureFile,log=captureLog;setBusy(true,"正在停止抓包…");new SwingWorker<Long,Void>(){protected Long doInBackground()throws Exception{capture.stop();return CaptureSession.finishFile(output);}protected void done(){if(closed)return;captureFile=null;captureButton.setText("本机抓包");setBusy(false,"");try{get();if(output.length()<28)throw new IOException("没有生成有效抓包。"+(log!=null&&log.isFile()?new String(Files.readAllBytes(log.toPath()),StandardCharsets.UTF_8):""));load(output);}catch(Exception e){error(e);}finally{if(log!=null&&!log.delete())log.deleteOnExit();}}}.execute();}
-    public void shutdown(){closed=true;stopMediaTask(false);updates.close();callTools.close();if(importTask!=null)importTask.cancel(true);tlsKeys=TlsKeyLog.empty();rsaKeys=TlsRsaKeys.empty();ticker.stop();searchTimer.stop();closeCaptureDialogs();discardAudio();if(pendingPrevious!=null)try{pendingPrevious.close();}catch(IOException ignored){}if(model.analysis!=null)try{model.analysis.close();}catch(IOException ignored){}if(captureFile!=null)try{capture.stop();CaptureSession.finishFile(captureFile);}catch(Exception ignored){}if(captureLog!=null&&!captureLog.delete())captureLog.deleteOnExit();}
+    private Runnable captureHandler=()->{};
+    void setCaptureHandler(Runnable handler){captureHandler=handler;}
+    boolean acceptsCapture(){return !busy&&!closed;}
+    private void captureAction(){captureHandler.run();}
+    public void shutdown(){closed=true;stopMediaTask(false);updates.close();callTools.close();if(importTask!=null)importTask.cancel(true);tlsKeys=TlsKeyLog.empty();rsaKeys=TlsRsaKeys.empty();ticker.stop();searchTimer.stop();closeCaptureDialogs();discardAudio();if(pendingPrevious!=null)try{pendingPrevious.close();}catch(IOException ignored){}if(model.analysis!=null)try{model.analysis.close();}catch(IOException ignored){}}
     private static String readText(InputStream in)throws IOException{if(in==null)throw new IOException("资源不存在");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);return new String(out.toByteArray(),StandardCharsets.UTF_8);}
     private static final class CallRenderer extends JPanel implements ListCellRenderer<Call> {
         final JLabel people=Ui.label("",13,Ui.INK),time=Ui.label("",11,Ui.MUTED),state=Ui.label("",12,Ui.POSITIVE),id=Ui.label("",11,Ui.MUTED);
@@ -437,7 +448,7 @@ public final class DesktopApp extends JPanel {
         if(args.length>=2&&args[0].equals("--diagnostics")){diagnostics(new File(args[1]));return;}
         Thread.setDefaultUncaughtExceptionHandler((thread,error)->{error.printStackTrace();SwingUtilities.invokeLater(()->JOptionPane.showMessageDialog(null,Ui.error(error),"超哥话探",JOptionPane.ERROR_MESSAGE));});
         SwingUtilities.invokeLater(()->{Ui.setup();DesktopApp app=new DesktopApp();JFrame frame=new JFrame("超哥话探 · SIP · RTP 通话分析");frame.setIconImages(Ui.icons());Workbench workbench=new Workbench(app);frame.setContentPane(workbench);Ui.fitWindow(frame,1450,920,1040,700);frame.setLocationRelativeTo(null);
-            new TrayManager(frame,()->app.captureFile==null||JOptionPane.showConfirmDialog(frame,"正在抓包，停止抓包后退出？","退出超哥话探",JOptionPane.YES_NO_OPTION)==JOptionPane.YES_OPTION,()->{try{workbench.close();}finally{app.shutdown();}});
+            new TrayManager(frame,workbench::confirmExit,()->{try{workbench.close();}finally{app.shutdown();}},workbench::capturing,workbench::stopCapture);
             frame.setVisible(true);app.updates.start();if(args.length>0){List<File> files=new ArrayList<>();for(String arg:args)files.add(new File(arg));app.loadFiles(files);}});
     }
     public static void diagnostics(File output) throws Exception {

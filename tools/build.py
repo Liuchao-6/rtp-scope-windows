@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,json,os,shutil,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.8.11'
+VERSION='0.10.0'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'
@@ -35,6 +35,7 @@ def checksum(path):path.with_name(path.name+'.sha256').write_text(hashlib.sha256
 
 def main():
     BUILD.mkdir(exist_ok=True);DIST.mkdir(exist_ok=True);runtime()
+    run([CSC,'/nologo','/target:winexe','/platform:x64','/optimize+','/utf8output','/codepage:65001','/out:build/HuatanCapture.exe']+sorted((ROOT/'capture').glob('*.cs')))
     run([sys.executable,ROOT/'tools/make_demo_capture.py'])
     compiler=TOOLS/'ecj.jar'
     if not compiler.is_file():raise SystemExit('Place Eclipse ECJ 3.21.0 in .tools/ecj.jar (see README)')
@@ -62,6 +63,8 @@ def main():
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'CoreTest',ROOT/'tests/fixtures',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.NativeFeatureTest',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.DesktopTest',ROOT/'tests/fixtures',BUILD])
+        run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.LocalCaptureTest',BUILD])
+        run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.CaptureV2Test',BUILD])
         run([JAVA,'-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.AudioProbe',BUILD/'demo-desktop.wav',BUILD/'audio-probe.txt'])
         run([JAVA,'-Xmx160m','-cp',cp,'LargeCaptureTest',ROOT/'tests/fixtures',BUILD])
     if '--test-only' in sys.argv:return
@@ -72,6 +75,7 @@ def main():
     assert not product.is_symlink(),'Refusing to replace a linked release directory'
     if product.exists():shutil.rmtree(product)
     (product/'app').mkdir(parents=True,exist_ok=True)
+    shutil.copy2(BUILD/'HuatanCapture.exe',product/'app/HuatanCapture.exe')
     jar=product/'app/chaoge-huatan.jar'
     with zipfile.ZipFile(jar,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('META-INF/MANIFEST.MF','Manifest-Version: 1.0\r\nMain-Class: com.liuchao.rtpscope.desktop.DesktopApp\r\nClass-Path: lib/flatlaf-3.6.2.jar \r\n lib/bcprov-jdk15to18-1.78.1.jar \r\n lib/sherpa-onnx-jvm-2.0.1.jar \r\n lib/sherpa-onnx-native-lib-win-x64-2.0.1.jar\r\n\r\n')
@@ -103,7 +107,7 @@ def main():
     checksum(archive)
     source=DIST/('ChaogeHuatan-windows-source-'+VERSION+'.zip')
     with zipfile.ZipFile(source,'w',zipfile.ZIP_DEFLATED) as z:
-        for folder in ['src','launcher','tools','tests','third_party','packaging']:
+        for folder in ['src','launcher','capture','tools','tests','third_party','packaging']:
             for p in sorted((ROOT/folder).rglob('*')):
                 if p.is_file() and '__pycache__' not in p.parts:z.write(p,'rtp-scope-windows/'+p.relative_to(ROOT).as_posix())
         z.write(ROOT/'.gitignore','rtp-scope-windows/.gitignore')

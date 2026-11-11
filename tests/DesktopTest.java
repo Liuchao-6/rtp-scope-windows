@@ -28,8 +28,6 @@ public final class DesktopTest {
         model.selected.add(demo.streams.stream().filter(s->s.isDtmf()).findFirst().get());try{model.playbackSelection();throw new AssertionError("event is not audio");}catch(IllegalArgumentException expected){checks++;}
         model.load(demo);check(model.selected.isEmpty()&&model.query.isEmpty()&&model.callId.isEmpty(),"new file clears stale selections");
         RtpStream first=new RtpStream(),second=new RtpStream();first.codec=second.codec="PCMU";first.callId="one";second.callId="two";model.selected.add(first);model.selected.add(second);try{model.playbackSelection();throw new AssertionError("different calls mixed");}catch(IllegalArgumentException expected){checks++;}
-        List<String> command=CaptureSession.command(new File("C:/Program Files/Wireshark/tshark.exe"),"3",new File(out,"测试 & output.pcapng"));
-        check(command.get(0).endsWith("tshark.exe")&&command.contains("3")&&command.contains("pcapng"),"tshark arguments structured");check(command.contains(new File(out,"测试 & output.pcapng").getAbsolutePath()),"capture output path one argument");
         File captured=new File(out,"capture-tail.pcapng");Path original=new File(fixtures,"multi-section.pcapng").toPath();Files.copy(original,captured.toPath(),StandardCopyOption.REPLACE_EXISTING);long length=captured.length();
         check(CaptureSession.finishFile(captured)==0&&captured.length()==length,"complete multiple-endian sections preserved");
         try(FileOutputStream append=new FileOutputStream(captured,true)){append.write(new byte[]{6,0,0,0,64});}

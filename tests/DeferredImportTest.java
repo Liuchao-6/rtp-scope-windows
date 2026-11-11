@@ -49,12 +49,17 @@ public final class DeferredImportTest {
         }finally{gate.release.countDown();SwingUtilities.invokeAndWait(app::shutdown);}
         check(!capture.signaling.mediaStore.file().exists(),"normal shutdown releases background media cache");
 
+        DeferredCapture untouched=read(fixtures);Gate introGate=new Gate(untouched.signaling.streams.get(0));
+        SwingUtilities.invokeAndWait(()->{holder[0]=new DesktopApp();start(holder[0],untouched);});DesktopApp introApp=holder[0];
+        try{check(introGate.entered.await(5,TimeUnit.SECONDS),"intro test holds actual background media work");SwingUtilities.invokeAndWait(()->check(introApp.detail.original().contains("正在后台分析"),"intro accurately describes pending media"));introGate.release.countDown();waitFor(introApp,()->!introApp.isBackgroundWorking());SwingUtilities.invokeAndWait(()->check(introApp.detail.original().contains("分析已完成")&&!introApp.detail.original().contains("正在后台"),"untouched intro changes to completed without requiring a packet click"));}
+        finally{introGate.release.countDown();SwingUtilities.invokeAndWait(introApp::shutdown);}
+
         // Cancel while a decoder is still using the cache, then immediately open another capture.
         DeferredCapture old=read(fixtures);Gate blocked=new Gate(old.signaling.streams.get(0));File oldFile=old.signaling.mediaStore.file();
         SwingUtilities.invokeAndWait(()->{holder[0]=new DesktopApp();start(holder[0],old);});DesktopApp switching=holder[0];
         try{
             check(blocked.entered.await(5,TimeUnit.SECONDS),"old worker holds a live packet lease");
-            SwingUtilities.invokeAndWait(()->{((JButton)find(switching,"cancelImport")).doClick();check(!switching.isBackgroundWorking()&&switching.isMediaPending()&&!switching.isBusy(),"stop keeps signaling open and marks media incomplete");switching.setSearch("INVITE");check(!switching.model.messages().isEmpty(),"SIP remains usable after stopping media");switching.load(new File(fixtures,"key-modes.pcap"));});
+            SwingUtilities.invokeAndWait(()->{((JButton)find(switching,"cancelImport")).doClick();check(!switching.isBackgroundWorking()&&switching.isMediaPending()&&!switching.isBusy(),"stop keeps signaling open and marks media incomplete");check(switching.detail.original().contains("继续媒体分析")&&!switching.detail.original().contains("正在后台"),"cancel removes stale running intro");switching.setSearch("INVITE");check(!switching.model.messages().isEmpty(),"SIP remains usable after stopping media");switching.load(new File(fixtures,"key-modes.pcap"));});
             waitFor(switching,()->!switching.isBusy()&&!switching.isBackgroundWorking());check(oldFile.isFile(),"switch waits for actual old worker termination before deleting its cache");
             Analysis[] current={null};SwingUtilities.invokeAndWait(()->{current[0]=switching.model.analysis;check(current[0].events.size()==37,"new capture gets its own complete key analysis");});
             blocked.release.countDown();long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);while(oldFile.exists()&&System.nanoTime()<until)Thread.sleep(20);
@@ -70,7 +75,7 @@ public final class DeferredImportTest {
         DeferredCapture failed=read(fixtures);RtpStream failing=failed.signaling.streams.get(0);List<RtpPacket> source=failing.packets;
         failing.packets=new AbstractList<RtpPacket>(){public int size(){return source.size();}public RtpPacket get(int n){if(!SwingUtilities.isEventDispatchThread())throw new IllegalStateException("synthetic media read failure");return source.get(n);}};
         SwingUtilities.invokeAndWait(()->{holder[0]=new DesktopApp();start(holder[0],failed);});DesktopApp failedApp=holder[0];
-        try{waitFor(failedApp,()->!failedApp.isBackgroundWorking());SwingUtilities.invokeAndWait(()->{check(failedApp.isMediaPending()&&!failedApp.isBusy(),"media failure keeps an explicit incomplete state");failedApp.setSearch("INVITE");check(!failedApp.model.messages().isEmpty(),"media failure does not discard readable signaling");});}
+        try{waitFor(failedApp,()->!failedApp.isBackgroundWorking());SwingUtilities.invokeAndWait(()->{check(failedApp.isMediaPending()&&!failedApp.isBusy(),"media failure keeps an explicit incomplete state");check(failedApp.detail.original().contains("可重试")&&!failedApp.detail.original().contains("正在后台"),"media failure removes stale running intro");failedApp.setSearch("INVITE");check(!failedApp.model.messages().isEmpty(),"media failure does not discard readable signaling");});}
         finally{SwingUtilities.invokeAndWait(failedApp::shutdown);}check(!failed.signaling.mediaStore.file().exists(),"media failure releases its task lease");
 
         // A queued, never-started SwingWorker must release its lease when cancelled.
