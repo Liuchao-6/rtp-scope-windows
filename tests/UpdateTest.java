@@ -20,6 +20,7 @@ public final class UpdateTest {
     private static void invalid(Action action,String label)throws Exception{boolean rejected=false;try{action.run();}catch(IOException|IllegalArgumentException expected){rejected=true;}check(rejected,label);}
     private static byte[] bytes(String value){return value.getBytes(StandardCharsets.UTF_8);}
     private static String release(String tag){return "{\"tag_name\":\""+tag+"\",\"draft\":false,\"prerelease\":false,\"name\":\"超哥话探 "+tag+"\",\"body\":\"### 更新说明\\n- 改进通话分析\\n- 修复使用问题\",\"html_url\":\"https://example.invalid/untrusted\",\"assets\":[{\"size\":200,\"optional\":null}]}";}
+    private static String futureVersion(int increment){String[] parts=DesktopApp.VERSION.split("\\.");return parts[0]+"."+parts[1]+"."+(Integer.parseInt(parts[2])+increment);}
     private static Object field(Object target,String name)throws Exception{Field f=target.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(target);}
     private static void edt(Action action)throws Exception{SwingUtilities.invokeAndWait(()->{try{action.run();}catch(Exception e){throw new RuntimeException(e);}});}
     private static void waitFor(UpdateManager manager)throws Exception{
@@ -38,15 +39,16 @@ public final class UpdateTest {
 
     public static int run(File output)throws Exception {
         checks=0;
+        final String nextVersion=futureVersion(1),nextTag="v"+nextVersion;
         check(UpdateChecker.compareVersions("0.8.10","0.8.9")>0,"numeric ordering across two digit patch");
         check(UpdateChecker.compareVersions("v1.0.0","0.99.99")>0,"major version ordering");
         check(UpdateChecker.compareVersions("0.8.6.0","v0.8.6")==0,"equal versions and optional v prefix");
         check(UpdateChecker.compareVersions("0.8.5","0.8.6")<0,"never offer a downgrade");
         invalid(()->UpdateChecker.compareVersions("0.8.6-beta","0.8.5"),"exclude prerelease version syntax");
-        UpdateChecker.Release newer=UpdateChecker.parse(bytes(release("v0.8.10")));
+        UpdateChecker.Release newer=UpdateChecker.parse(bytes(release(nextTag)));
         check(newer.newerThan(DesktopApp.VERSION)&&newer.notes.contains("改进通话分析"),"Chinese release notes and newer release");
-        check(newer.page.toString().equals(UpdateChecker.RELEASES+"/tag/v0.8.10"),"download stays at official repository despite remote URL");
-        check(UpdateChecker.parse(bytes(release("v0.8.10").replace("### 更新说明","\\u66f4\\u65b0"))).notes.startsWith("更新"),"JSON unicode escapes");
+        check(newer.page.toString().equals(UpdateChecker.RELEASES+"/tag/"+nextTag),"download stays at official repository despite remote URL");
+        check(UpdateChecker.parse(bytes(release(nextTag).replace("### 更新说明","\\u66f4\\u65b0"))).notes.startsWith("更新"),"JSON unicode escapes");
         check(UpdateChecker.parse(bytes("{\"tag_name\":\"v1.0\",\"draft\":false,\"prerelease\":false}")).notes.contains("未填写"),"optional release notes fallback");
         for(String malformed:new String[]{"{}","[]",release("v1.0").replace("\"draft\":false","\"draft\":true"),release("v1.0").replace("\"prerelease\":false","\"prerelease\":true"),release("v1.0/../../evil"),release("v1.0")+" trailing",release("v1.0").replace("200","01"),release("v1.0").replace("200","1e9999999999"),release("v1.0").replace("200","[1,]"),release("v1.0").replace("200","\"\\q\""),release("v1.0").replace("200","{\"a\":1,\"a\":2}"),"["+new String(new char[40]).replace("\0","[")+"0"})invalid(()->UpdateChecker.parse(bytes(malformed)),"reject malformed or ineligible release metadata");
         invalid(()->UpdateChecker.readBounded(new ByteArrayInputStream(new byte[UpdateChecker.MAX_BYTES+1])),"cap response without content length");
@@ -56,13 +58,13 @@ public final class UpdateTest {
         server.createContext("/",exchange->{
             requests.incrementAndGet();publicOnly.compareAndSet(true,exchange.getRequestMethod().equals("GET")&&exchange.getRequestHeaders().getFirst("Authorization")==null&&exchange.getRequestHeaders().getFirst("Cookie")==null&&exchange.getRequestBody().read()==-1&&exchange.getRequestHeaders().getFirst("User-Agent").startsWith("ChaogeHuatan-Windows/"));
             String path=exchange.getRequestURI().getPath();int code=path.equals("/limited")?429:path.equals("/redirect")?302:path.equals("/missing")?404:200;
-            byte[] data=bytes(path.equals("/bad")?"<html>not json</html>":release("v0.8.10"));
+            byte[] data=bytes(path.equals("/bad")?"<html>not json</html>":release(nextTag));
             if(code==302)exchange.getResponseHeaders().add("Location","/stable");
             exchange.sendResponseHeaders(code,data.length);try(OutputStream out=exchange.getResponseBody()){out.write(data);}
         });server.start();
         try{
             String base="http://127.0.0.1:"+server.getAddress().getPort();
-            check(new UpdateChecker(()->(HttpURLConnection)new URL(base+"/stable").openConnection()).fetch().version.equals("0.8.10"),"real HTTP release query");
+            check(new UpdateChecker(()->(HttpURLConnection)new URL(base+"/stable").openConnection()).fetch().version.equals(nextVersion),"real HTTP release query");
             for(String path:new String[]{"/limited","/missing","/redirect","/bad"})invalid(()->new UpdateChecker(()->(HttpURLConnection)new URL(base+path).openConnection()).fetch(),"HTTP error handled: "+path);
             check(requests.get()==5,"do not follow unexpected redirects");check(publicOnly.get(),"GET metadata without credentials or request body");
         }finally{server.stop(0);}
@@ -74,7 +76,7 @@ public final class UpdateTest {
         check(new UpdateSettings(config).due(now+UpdateSettings.DAY),"check again after 24 hours");
         check(settings.due(now-1000),"recover after system clock moves backward");
         settings.ignore(newer);check(new UpdateSettings(config).ignored(newer),"ignored version persists");
-        check(!settings.ignored(UpdateChecker.parse(bytes(release("v0.8.11")))),"ignoring one version still allows a subsequent version");
+        check(!settings.ignored(UpdateChecker.parse(bytes(release("v"+futureVersion(2))))),"ignoring one version still allows a subsequent version");
         settings.automatic(false);check(!new UpdateSettings(config).automatic()&&!settings.due(now+UpdateSettings.DAY*2),"automatic checks can be disabled");
 
         AtomicReference<UpdateManager> manager=new AtomicReference<>();AtomicInteger fetches=new AtomicInteger();AtomicReference<URI> opened=new AtomicReference<>();

@@ -30,7 +30,7 @@ public final class CallHealthInteractionTest {
             SwingUtilities.invokeAndWait(()->{
                 DesktopApp app=new DesktopApp();
                 try{
-                    app.acceptAnalysis(analysis,"合成演示 · 按键摘要检查");app.model.callId=analysis.calls.get(0).id;
+                    app.acceptAnalysis(analysis,"合成演示 · 按键摘要检查");
                     ((JTabbedPane)field(app,"tabs")).setSelectedIndex(4);
                     CallToolsPanel tools=(CallToolsPanel)field(app,"callTools");CallHealthView report=(CallHealthView)field(tools,"report");
                     CallHealth health=CallHealth.inspect(analysis,app.model.callId);

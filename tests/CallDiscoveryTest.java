@@ -17,7 +17,7 @@ public final class CallDiscoveryTest {
         final DesktopApp[] holder={null};SwingUtilities.invokeAndWait(()->{
             DesktopApp app=new DesktopApp();holder[0]=app;app.acceptAnalysis(demo,"演示");app.setSearch("no packet matches");CallSearch.Filter f=new CallSearch.Filter();f.caller="1001";f.callee="1002";f.ip="10.0.0.2";app.setCallSearch(f);
             check(app.callCount()==1&&app.model.messages().isEmpty(),"call discovery is independent of packet search");
-            ((JList<?>)find(app,"calls")).setSelectedIndex(0);check(app.model.query.isEmpty()&&app.flow.data().entries.size()==8,"choosing a call restores the complete packet timeline");
+            JList<?> list=(JList<?>)find(app,"calls");list.clearSelection();list.setSelectedIndex(0);check(app.model.query.isEmpty()&&app.flow.data().entries.size()==8,"choosing a call restores the complete packet timeline");
             JTextField quick=(JTextField)find(app,"callQuickSearch");quick.setText("missing");check(app.callCount()==0,"real quick-search field filters all calls");quick.setText("1002");check(app.callCount()==1,"quick-search restores matching call");
             CallFilterPanel panel=new CallFilterPanel(f);((JTextField)find(panel,"start")).setText("25:99");try{panel.value();throw new AssertionError("invalid form accepted");}catch(IllegalArgumentException expected){checks++;}
             ((JTextField)find(panel,"start")).setText("");check(panel.value().callee.equals("1002"),"structured form retains fields");app.loadFiles(Arrays.asList(new File(fixtures,"demo-analysis.pcap"),new File(fixtures,"key-modes.pcap")));

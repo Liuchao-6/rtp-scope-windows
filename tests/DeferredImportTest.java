@@ -36,8 +36,9 @@ public final class DeferredImportTest {
             final RtpStream selected=capture.signaling.streams.get(0);
             SwingUtilities.invokeAndWait(()->{
                 check(!app.isBusy()&&app.isBackgroundWorking()&&app.isMediaPending(),"foreground import is released before media completes");
+                check(app.model.callId.equals(capture.signaling.calls.get(0).id)&&((JList<?>)find(app,"calls")).getSelectedIndex()==0,"first call is already selected while media analysis is pending");
                 JTextField quick=(JTextField)find(app,"callQuickSearch");check(quick.isEnabled(),"call search enabled during media analysis");quick.setText("no-such-call");check(app.callCount()==0,"real quick search works before analysis completes");quick.setText("1001");check(app.callCount()==1,"real quick search finds the desired call");
-                ((JList<?>)find(app,"calls")).setSelectedIndex(0);app.setSearch("INVITE");check(!app.model.messages().isEmpty(),"SIP selection and message filter work while media is blocked");
+                app.setSearch("INVITE");check(!app.model.messages().isEmpty(),"SIP selection and message filter work while media is blocked");
                 app.model.selected.add(selected);app.openEntry(selected);check(app.detail.original().contains("待分析")&&!app.detail.original().contains("缺少 0"),"pending quality is explicit and does not claim zero loss");check(app.renderedFile()==null&&!app.isBusy(),"incomplete media cannot start playback or a second audio scan");
                 try{JTable table=(JTable)field(app,"rtpTable");app.setSearch("");check(table.getValueAt(0,7).equals("待分析"),"RTP table shows unknown quality");app.setSearch("INVITE");}catch(Exception e){throw new RuntimeException(e);}
                 JTabbedPane tabs=(JTabbedPane)find(app,"analysisTabs");check(!tabs.isEnabledAt(4),"call health waits for reliable media results");tabs.setSelectedIndex(1);
