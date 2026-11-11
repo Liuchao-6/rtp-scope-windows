@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,json,os,shutil,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.8.10'
+VERSION='0.8.11'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'
@@ -35,6 +35,7 @@ def checksum(path):path.with_name(path.name+'.sha256').write_text(hashlib.sha256
 
 def main():
     BUILD.mkdir(exist_ok=True);DIST.mkdir(exist_ok=True);runtime()
+    run([sys.executable,ROOT/'tools/make_demo_capture.py'])
     compiler=TOOLS/'ecj.jar'
     if not compiler.is_file():raise SystemExit('Place Eclipse ECJ 3.21.0 in .tools/ecj.jar (see README)')
     toolchain=json.loads((ROOT/'third_party/toolchain.json').read_text(encoding='utf-8'))
@@ -91,7 +92,7 @@ def main():
     run([product/'ChaogeHuatan.exe','--diagnostics',str(result)])
     assert result.is_file(),'Native launcher diagnostic missing'
     diagnostic=result.read_text(encoding='utf-8')
-    assert all(value in diagnostic for value in ['flow=8','wave_tracks=2','ui=FlatLaf']),'Native launcher diagnostic failed'
+    assert all(value in diagnostic for value in ['demo_calls=21','flow=9','wave_tracks=2','ui=FlatLaf']),'Native launcher diagnostic failed'
     archive=DIST/(product.name+'.zip')
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for p in sorted(product.rglob('*')):

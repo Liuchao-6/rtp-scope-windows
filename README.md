@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.10/ChaogeHuatan-0.8.10-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.11/ChaogeHuatan-0.8.11-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.8.10 更新**：首次打开抓包默认选中第一通，流序图、RTP 操作与通话体检同步使用该通话；点击「全部」查看整个抓包。切换文件后恢复之前选中的通话或「全部」视图。
+**0.8.11 更新**：主界面新增「体验演示」入口；内置约 3.7 MiB、23 通合成通话，覆盖全部支持编码、三类双向完整按键、质量异常、转接和 TLS / WSS 分别导入密钥演示。
 
 ## 解决的痛点
 
@@ -34,6 +34,17 @@
 - **离线转文字**：RTP 通话和本地录音共用模型，双向 / 双声道分别识别，支持文字搜索、回听、TXT / SRT 合并或分声道导出。
 - **检查更新**：启动后每 24 小时最多查询一次 GitHub 正式版，也可手动检查；显示更新说明，支持稍后提醒、忽略此版本和关闭启动检查。下载通过浏览器打开官方发布页。
 - **关闭与托盘**：关闭窗口时可选择隐藏到托盘、退出程序或取消；双击托盘图标或通过托盘菜单恢复主界面，隐藏期间当前任务继续运行。
+
+## 内置演示
+
+主界面上方「导入抓包」旁的「体验演示」使用同一个约 3.7 MiB 的合成抓包，包含 23 个独立通话场景；导入后默认查看第 01 通，可切换通话或点「全部」。
+
+- 01～06：G.711 PCMU / PCMA、G.729 / G.729A、Opus、G.722、AMR-NB / AMR-WB 双向中文语音。
+- 07～09：RFC 2833 / 4733（含动态 PT 和 rtpevent）、SIP INFO 两种格式、In-band，各演示双向完整 16 键；RTP 事件另含 Flash。
+- 10～21：丢包、延迟、乱序、重复、保持 / 恢复、TCP / WebSocket、拒接、取消、超时、单向 / 中断、REFER / Replaces 转接、RTP 时钟停顿和正常静音间隔。
+- 22～23：TLS 1.2 RSA 和 TLS 1.3 WSS；先打开演示，再在「解密密钥」中分别加载演示 RSA 私钥和演示 TLS key log，重新分析后显示。
+
+「更多 → 演示说明」提供场景与号码对照。可体验波形缩放、通话体检、多声道 WAV 导出、按通话导出抓包、报告与号码 / IP 遮蔽；导出 WAV 后也可导入录音转文字。转写需另行导入离线模型，AMR 需本机有对应解码器。示例语音由本地语音合成生成，未使用真实通话。
 
 ## 使用
 

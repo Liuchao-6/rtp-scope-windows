@@ -1,0 +1,260 @@
+{
+  "synthetic_only": true,
+  "sha256": "9ea2c71427e2666c8b7de61f106a31ac601fa557b74094595bc9525e1ec5f368",
+  "packets": 21509,
+  "calls": [
+    {
+      "number": 1,
+      "id": "01-g711@demo.invalid",
+      "title": "G.711 双向语音",
+      "caller": "10001",
+      "callee": "20001",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 2,
+      "id": "02-g729@demo.invalid",
+      "title": "G.729 与 G.729A",
+      "caller": "10002",
+      "callee": "20002",
+      "codecs": [
+        "G729",
+        "G729A"
+      ]
+    },
+    {
+      "number": 3,
+      "id": "03-opus@demo.invalid",
+      "title": "Opus 双向语音",
+      "caller": "10003",
+      "callee": "20003",
+      "codecs": [
+        "OPUS",
+        "OPUS"
+      ]
+    },
+    {
+      "number": 4,
+      "id": "04-g722@demo.invalid",
+      "title": "G.722 宽带语音",
+      "caller": "10004",
+      "callee": "20004",
+      "codecs": [
+        "G722",
+        "G722"
+      ]
+    },
+    {
+      "number": 5,
+      "id": "05-amr-nb@demo.invalid",
+      "title": "AMR-NB 双向语音",
+      "caller": "10005",
+      "callee": "20005",
+      "codecs": [
+        "AMR",
+        "AMR"
+      ]
+    },
+    {
+      "number": 6,
+      "id": "06-amr-wb@demo.invalid",
+      "title": "AMR-WB 双向语音",
+      "caller": "10006",
+      "callee": "20006",
+      "codecs": [
+        "AMR-WB",
+        "AMR-WB"
+      ]
+    },
+    {
+      "number": 7,
+      "id": "07-rtp-event@demo.invalid",
+      "title": "2833 全按键与动态 PT",
+      "caller": "10007",
+      "callee": "20007",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 8,
+      "id": "08-sip-info@demo.invalid",
+      "title": "INFO 两种格式全按键",
+      "caller": "10008",
+      "callee": "20008",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 9,
+      "id": "09-inband@demo.invalid",
+      "title": "In-band 全按键",
+      "caller": "10009",
+      "callee": "20009",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 10,
+      "id": "10-quality@demo.invalid",
+      "title": "丢包 延迟 乱序 重复",
+      "caller": "10010",
+      "callee": "20010",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 11,
+      "id": "11-hold@demo.invalid",
+      "title": "保持与恢复 被叫挂断",
+      "caller": "10011",
+      "callee": "20011",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 12,
+      "id": "12-tcp@demo.invalid",
+      "title": "TCP 分段信令",
+      "caller": "10012",
+      "callee": "20012",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 13,
+      "id": "13-websocket@demo.invalid",
+      "title": "WebSocket 分帧信令",
+      "caller": "10013",
+      "callee": "20013",
+      "codecs": [
+        "OPUS",
+        "OPUS"
+      ]
+    },
+    {
+      "number": 14,
+      "id": "14-busy@demo.invalid",
+      "title": "被叫忙 486",
+      "caller": "10014",
+      "callee": "20014",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 15,
+      "id": "15-cancel@demo.invalid",
+      "title": "主叫取消 CANCEL",
+      "caller": "10015",
+      "callee": "20015",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 16,
+      "id": "16-timeout@demo.invalid",
+      "title": "信令重传与 408 超时",
+      "caller": "10016",
+      "callee": "20016",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 17,
+      "id": "17-partial@demo.invalid",
+      "title": "单向媒体 结束未捕获",
+      "caller": "10017",
+      "callee": "20017",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 18,
+      "id": "18-transfer-from@demo.invalid",
+      "title": "转接原通话 REFER",
+      "caller": "10018",
+      "callee": "20018",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 19,
+      "id": "19-transfer-to@demo.invalid",
+      "title": "转接后通话 Replaces",
+      "caller": "10019",
+      "callee": "20019",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 20,
+      "id": "20-timestamp@demo.invalid",
+      "title": "RTP 时钟停顿与双向对齐",
+      "caller": "10020",
+      "callee": "20020",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 21,
+      "id": "21-dtx@demo.invalid",
+      "title": "静音抑制 正常媒体间隔",
+      "caller": "10021",
+      "callee": "20021",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 22,
+      "id": "22-tls-rsa@demo.invalid",
+      "title": "TLS 1.2 RSA 解密",
+      "caller": "10022",
+      "callee": "20022",
+      "codecs": [
+        "PCMU",
+        "PCMA"
+      ]
+    },
+    {
+      "number": 23,
+      "id": "23-wss@demo.invalid",
+      "title": "TLS 1.3 WSS 解密",
+      "caller": "10023",
+      "callee": "20023",
+      "codecs": [
+        "OPUS",
+        "OPUS"
+      ]
+    }
+  ]
+}

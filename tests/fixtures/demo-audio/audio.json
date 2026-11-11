@@ -1,0 +1,25 @@
+{
+  "synthetic_only": true,
+  "source": "Local Windows SAPI speech synthesis; no recorded calls",
+  "caller_text": "你好，这里是超哥话探，通话声音是否清楚？",
+  "callee_text": "声音清楚，现在测试双向语音和通话分析。",
+  "frames": 550,
+  "files_sha256": {
+    "callee.amr": "f138240d8850fcc4d1bcfd9cfd6f8e087ca8a2f6ff80bba9a144c8127deed5d9",
+    "callee.awb": "70277c70227df92b631e50284189f06d06d7687fae129adc5cc1655f05432d0a",
+    "callee.g722": "071944c118e959ad06dfa6e1ca2da19bfae67b016fdaf93ab84af0adf68745db",
+    "callee.g729": "1106653850cc4474f8677d842ef73a9cbc45a0d58b63f96c67e1e4b49ad4a4f9",
+    "callee.opus": "c7b1814116d700bacdf775d7adacd31390a59f1854caeca86750807ad4324fdd",
+    "callee.pcma": "e4a6593e1353f567e37ee8ce7914e635c7975a3ce8027009265c8144d68ce4df",
+    "callee.pcmu": "17d7741a11a19807cd7995b5ab1b4ef7003c69496bef8159c9b831edf3fe0ba1",
+    "callee.wav": "7f06fd3d824880b94fe978e8354da37b912c4cda7e1cd16df20b67d7e981a269",
+    "caller.amr": "618da50016372c268ce01371bb1ad6698c02265402bc1425721a721f31c01eae",
+    "caller.awb": "dda48c1e57a5dbf80408b9c3bafbdb310497e96dd11c3911de6a15697b848e7c",
+    "caller.g722": "f847442ec2ef07df2cbb3d4c4e8ec2d439ea56f08d91ead41130c1dc4ca26461",
+    "caller.g729": "06c3c9d69a86e99d9b589d2398fb238e56502bd1a8308b8f83ad7e2dced28092",
+    "caller.opus": "fe8caf609c94809c0426fd6b8b88e2457a8f139bd57d26ffff5235a085fc1f62",
+    "caller.pcma": "044c219a8b18b33a6d3989b4f2cbbcc449e95092a21430711725e54a5fcdff2e",
+    "caller.pcmu": "fa4b4f9982eea05b5c4b3d453798692a613b1ad381c463cc9627cd18fb01bec3",
+    "caller.wav": "e24f95b3f2203b1befd1f387e38c77db4e2e1b8541bf2482b7a17c8bf596916c"
+  }
+}

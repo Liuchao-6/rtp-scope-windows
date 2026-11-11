@@ -7,3 +7,13 @@ src/main/resources/licenses/bouncycastle-LICENSE.txt -text whitespace=cr-at-eol,
 src/main/java/com/liuchao/rtpscope/core/G722Decoder.java -text whitespace=cr-at-eol,-blank-at-eol
 src/main/resources/licenses/g722-LICENSE.txt -text whitespace=cr-at-eol,-blank-at-eol,-blank-at-eof
 src/main/resources/licenses/opencc-LICENSE.txt -text whitespace=cr-at-eol,-blank-at-eof
+
+# Raw demo audio must retain every byte during Git checkout.
+tests/fixtures/demo-audio/*.pcmu binary
+tests/fixtures/demo-audio/*.pcma binary
+tests/fixtures/demo-audio/*.g729 binary
+tests/fixtures/demo-audio/*.g722 binary
+tests/fixtures/demo-audio/*.opus binary
+tests/fixtures/demo-audio/*.amr binary
+tests/fixtures/demo-audio/*.awb binary
+tests/fixtures/demo-audio/*.wav binary
