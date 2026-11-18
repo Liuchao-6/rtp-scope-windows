@@ -11,7 +11,7 @@ public final class SipInfoDtmf {
         for(SipMessage m:analysis.sip){
             if(!m.firstLine.startsWith("INFO "))continue;String content=m.headers.getOrDefault("content-type","").split(";",2)[0].trim().toLowerCase(Locale.ROOT);
             if(!content.equals("application/dtmf-relay")&&!content.equals("application/dtmf"))continue;
-            String body=m.body==null?"":m.body;Matcher signal=Pattern.compile("(?im)^\\s*Signal\\s*=\\s*([0-9A-Da-d*#]+)\\s*$").matcher(body);String value=signal.find()?signal.group(1):content.equals("application/dtmf")?body.trim():"";
+            String body=m.body()==null?"":m.body();Matcher signal=Pattern.compile("(?im)^\\s*Signal\\s*=\\s*([0-9A-Da-d*#]+)\\s*$").matcher(body);String value=signal.find()?signal.group(1):content.equals("application/dtmf")?body.trim():"";
             int number=-1;if(value.matches("[0-9]"))number=value.charAt(0)-'0';else if(value.equals("*"))number=10;else if(value.equals("#"))number=11;else if(value.matches("[A-Da-d]"))number=12+Character.toUpperCase(value.charAt(0))-'A';else try{int n=Integer.parseInt(value);if(n>=10&&n<=15)number=n;}catch(NumberFormatException ignored){}
             Matcher duration=Pattern.compile("(?im)^\\s*Duration\\s*=\\s*([^\\r\\n]+)\\s*$").matcher(body);long ms=0;boolean known=duration.find();
             if(known)try{ms=Long.parseLong(duration.group(1).trim());if(ms<=0||ms>60000)number=-1;}catch(NumberFormatException e){number=-1;}
@@ -26,9 +26,9 @@ public final class SipInfoDtmf {
     private static void associate(DtmfParser.Event event,Analysis a){
         if(event.callId==null||event.callId.isEmpty())return;String src=CallFlow.Endpoint.parse(event.src).ip,dst=CallFlow.Endpoint.parse(event.dst).ip;int best=0;Set<String> matches=new LinkedHashSet<>();Map<String,RtpStream> directions=new HashMap<>();
         Set<String> offered=new HashSet<>();
-        for(SipMessage m:a.sip)if(m.timeUs<=event.firstSeenUs&&Objects.equals(m.callId,event.callId)&&Objects.equals(m.src,event.src)&&m.body!=null&&m.headers.getOrDefault("content-type","").toLowerCase(Locale.ROOT).contains("application/sdp")){
+        for(SipMessage m:a.messagesFor(event.callId))if(m.timeUs<=event.firstSeenUs&&Objects.equals(m.callId,event.callId)&&Objects.equals(m.src,event.src)&&m.body()!=null&&m.headers.getOrDefault("content-type","").toLowerCase(Locale.ROOT).contains("application/sdp")){
             String sessionIp="",mediaIp="";int port=0;boolean inMedia=false,audio=false;
-            for(String line:(m.body+"\r\nm=end").split("\\r?\\n")){
+            for(String line:(m.body()+"\r\nm=end").split("\\r?\\n")){
                 line=line.trim();
                 if(line.startsWith("m=")){
                     if(audio&&port>0&&!mediaIp.isEmpty())offered.add(endpoint(mediaIp,port));

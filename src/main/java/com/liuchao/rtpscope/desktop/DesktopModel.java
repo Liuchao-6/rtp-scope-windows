@@ -13,7 +13,7 @@ public final class DesktopModel {
     public final Set<RtpStream> selected=new LinkedHashSet<>();
     public boolean matches(String text){return query.isEmpty()||text.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT));}
     private boolean call(String id){return callId.isEmpty()||callId.equals(id);}
-    public List<SipMessage> messages(){List<SipMessage> out=new ArrayList<>();if(analysis!=null)for(SipMessage m:analysis.sip)if(call(m.callId)&&matches(m.searchable()))out.add(m);return out;}
+    public List<SipMessage> messages(){List<SipMessage> out=new ArrayList<>();if(analysis!=null)for(SipMessage m:analysis.messagesFor(callId))if(call(m.callId)&&(query.isEmpty()||matches(m.searchable())))out.add(m);return out;}
     public List<RtpStream> streams(){List<RtpStream> out=new ArrayList<>();if(analysis!=null)for(RtpStream s:analysis.streams)if(call(s.callId)&&matches(s.searchable()))out.add(s);return out;}
     public List<DtmfParser.Event> events(){List<DtmfParser.Event> out=new ArrayList<>();if(analysis!=null)for(DtmfParser.Event e:analysis.events)if(call(e.callId)&&matches(e.searchable()))out.add(e);return out;}
     public CallFlow flow(){return CallFlow.build(analysis,callId,query);}

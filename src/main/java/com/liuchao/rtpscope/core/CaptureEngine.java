@@ -12,6 +12,8 @@ public final class CaptureEngine {
     private static final int MAX_BLOCK = 16 * 1024 * 1024;
     private static final int MAX_MEDIA = 64 * 1024 * 1024;
     private static final int MAX_TCP = 24 * 1024 * 1024;
+    private static final int MAX_DESKTOP_SIP = 500000;
+    private static final long SIP_MEMORY = 2L * 1024 * 1024;
     public static final class Analysis implements Closeable,Serializable {
         public final List<SipMessage> sip = new ArrayList<>();
         public final List<Call> calls = new ArrayList<>();
@@ -22,14 +24,38 @@ public final class CaptureEngine {
         public String format = "";
         public boolean reliableTimestamps = true, partial;
         public transient PacketStore mediaStore;
+        private transient Map<String,List<SipMessage>> sipByCall;
+        public void indexSip(){Map<String,List<SipMessage>> index=new HashMap<>();for(SipMessage m:sip)index.computeIfAbsent(m.callId,k->new ArrayList<>()).add(m);sipByCall=index;}
+        public List<SipMessage> messagesFor(String callId){if(callId==null||callId.isEmpty())return sip;if(sipByCall==null)indexSip();return sipByCall.getOrDefault(callId,Collections.emptyList());}
         public void close()throws IOException{if(mediaStore!=null)mediaStore.close();}
         public void warn(String message) { warnings.put(message, warnings.getOrDefault(message, 0) + 1); }
     }
     public static final class SipMessage implements Serializable {
         public long timeUs;
-        public String src, dst, transport, firstLine, raw, callId, from, to, cseq, body;
-        public final Map<String,String> headers = new LinkedHashMap<>();
-        public String searchable() { return src + " " + dst + " " + raw; }
+        public String src, dst, transport, firstLine, callId, from, to, cseq;
+        public transient String raw,body;
+        public transient Map<String,String> headers = new LinkedHashMap<>();
+        private transient PacketStore store;private transient long offset;private transient int length,bodyAt,bodyLength;
+        private boolean sdpBody;
+        public String raw(){try{return store==null?raw:new String(store.bytes(offset,length),StandardCharsets.UTF_8);}catch(IOException e){throw new UncheckedIOException(e);}}
+        public String body(){try{return store==null?body:new String(store.bytes(offset+bodyAt,bodyLength),StandardCharsets.UTF_8);}catch(IOException e){throw new UncheckedIOException(e);}}
+        public boolean hasSdpBody(){return store==null?body!=null&&body.trim().startsWith("v="):sdpBody;}
+        public String searchable() { return src + " " + dst + " " + raw(); }
+        private void spill(PacketStore target,byte[] bytes,int start,int count,int bodyStart,int bodyCount)throws IOException{
+            spill(target,bytes,start,count,bodyStart,bodyCount,-1);
+        }
+        private void spill(PacketStore target,byte[] bytes,int start,int count,int bodyStart,int bodyCount,long existing)throws IOException{
+            store=target;offset=existing<0?target.appendBytes(bytes,start,count):existing;length=count;bodyAt=bodyStart-start;bodyLength=bodyCount;sdpBody=body!=null&&body.trim().startsWith("v=");raw=null;body=null;headers=new StoredHeaders(this);
+        }
+        private void writeObject(ObjectOutputStream out)throws IOException{if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");out.defaultWriteObject();byte[] b=raw().getBytes(StandardCharsets.UTF_8);out.writeInt(b.length);out.write(b);}
+        private void readObject(ObjectInputStream in)throws IOException,ClassNotFoundException{
+            in.defaultReadObject();int count=in.readInt();if(count<0||count>4*1024*1024+65540)throw new IOException("索引 SIP 长度无效");byte[] b=new byte[count];in.readFully(b);raw=new String(b,StandardCharsets.UTF_8);int end=raw.indexOf("\r\n\r\n"),delimiter=4;if(end<0){end=raw.indexOf("\n\n");delimiter=2;}body=end<0?"":raw.substring(end+delimiter);headers=parseHeaders(end<0?raw:raw.substring(0,end));PacketStore target=AnalysisCache.restoring.get();if(target!=null){target.sipMemoryBytes+=count;if(target.sipMemoryBytes>SIP_MEMORY){int bodyBytes=body.getBytes(StandardCharsets.UTF_8).length;spill(target,b,0,b.length,b.length-bodyBytes,bodyBytes);}}
+        }
+        private static final class StoredHeaders extends AbstractMap<String,String>{
+            private final SipMessage message;StoredHeaders(SipMessage value){message=value;}
+            private Map<String,String> read(){try{return parseHeaders(new String(message.store.bytes(message.offset,message.bodyAt),StandardCharsets.UTF_8));}catch(IOException e){throw new UncheckedIOException(e);}}
+            public String get(Object key){return read().get(key);}public Set<Map.Entry<String,String>> entrySet(){return read().entrySet();}
+        }
     }
     public static final class Call implements Serializable {
         public String id, from = "", to = "", status = "";
@@ -89,7 +115,7 @@ public final class CaptureEngine {
     }
     private static final class Segment {
         long seq, time;
-        byte[] data;
+        byte[] data;long offset;int length;
     }
     private static final class TcpFlow {
         String src, dst;
@@ -111,12 +137,15 @@ public final class CaptureEngine {
     private final Map<String,TcpFlow> currentTcp = new HashMap<>();
     private final List<TcpFlow> tcp = new ArrayList<>();
     private final Map<String,Call> calls = new LinkedHashMap<>();
+    private final Map<String,String> sipStrings=new HashMap<>();
+    private String canonical(String text){String value=sipStrings.get(text);if(value!=null)return value;if(sipStrings.size()<65536)sipStrings.put(text,text);return text;}
     private final List<Media> media = new ArrayList<>();
     private List<RtpStream> deferredCandidates;
-    private int mediaBytes, tcpBytes;
+    private long mediaBytes, tcpBytes;
     private long packetLimit=500000;
     private long inputLimit=MAX_FILE;
     private PacketSink packetSink;
+    private Progress activeProgress;
     public interface PacketSink {
         void accept(byte[] packet,int link,long timeUs,String src,String dst,int protocol,byte[] payload)throws IOException;
         default void tcpHeader(long sequence,int flags){}
@@ -181,6 +210,7 @@ public final class CaptureEngine {
     }
     private static Analysis read(InputStream input,CaptureEngine supplied,Progress progress,boolean deferMedia)throws IOException{
         CaptureEngine engine = supplied==null?new CaptureEngine():supplied;
+        engine.activeProgress=progress;
         CountingInput in = new CountingInput(new BufferedInputStream(input,262144),engine.inputLimit,progress,engine);
         byte[] magic = exact(in, 4, false);
         try {
@@ -190,9 +220,9 @@ public final class CaptureEngine {
             if(!engine.validHeader)throw e;
             engine.recovered(in.count,e.getMessage());
         }
-        if(engine.result.mediaStore!=null)engine.result.mediaStore.seal();
         if(progress!=null)progress.stage("信令重组与通话索引");
         engine.finish(progress,deferMedia);
+        if(engine.result.mediaStore!=null)engine.result.mediaStore.seal();
         engine.result.bytes = in.count;
         return engine.result;
     }
@@ -385,9 +415,9 @@ public final class CaptureEngine {
             }
             if (end > p+h) {
                 tcpBytes += end-p-h;
-                if (tcpBytes > MAX_TCP) throw new IOException("TCP 重组超过 24 MB，请缩小抓包范围");
+                if (result.mediaStore==null&&tcpBytes > MAX_TCP) throw new IOException("TCP 重组超过 24 MB，请缩小抓包范围");
                 Segment s = new Segment(); s.seq = seq; s.time = time;
-                s.data = Arrays.copyOfRange(data,p+h,end); f.segments.add(s);
+                s.length=end-p-h;if(result.mediaStore==null)s.data=Arrays.copyOfRange(data,p+h,end);else s.offset=result.mediaStore.appendBytes(data,p+h,s.length);f.segments.add(s);
             }
         }
     }
@@ -429,9 +459,13 @@ public final class CaptureEngine {
         sip(data,src,dst,transport,time,null);
     }
     private void sip(byte[] data, String src, String dst, String transport, long time,List<Span> spans) throws IOException {
-        int cursor = 0;
+        sip(data,src,dst,transport,time,spans,-1);
+    }
+    private void sip(byte[] data, String src, String dst, String transport, long time,List<Span> spans,long storedAt) throws IOException {
+        int cursor = 0,spanIndex=0;
         while (cursor<data.length && (data[cursor]==13 || data[cursor]==10)) cursor++;
         while (cursor < data.length && looksSip(data,cursor)) {
+            if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
             int headEnd = -1, delimiter = 0;
             for (int i=cursor; i < data.length-1 && i-cursor <= 65536; i++) {
                 if (i+3<data.length && data[i]==13 && data[i+1]==10 && data[i+2]==13 && data[i+3]==10) { headEnd=i; delimiter=4; break; }
@@ -441,7 +475,7 @@ public final class CaptureEngine {
             String head = new String(data,cursor,headEnd-cursor,StandardCharsets.UTF_8);
             String[] lines = head.replaceAll("\r?\n[ \t]+"," ").split("\r?\n");
             SipMessage message = new SipMessage(); message.timeUs=time; message.src=src; message.dst=dst;
-            if (spans!=null) for (Span span:spans) { if(span.offset>cursor)break; message.timeUs=span.time; }
+            if (spans!=null) {while(spanIndex+1<spans.size()&&spans.get(spanIndex+1).offset<=cursor)spanIndex++;if(!spans.isEmpty()&&spans.get(spanIndex).offset<=cursor)message.timeUs=spans.get(spanIndex).time;}
             message.transport=transport; message.firstLine=lines[0];
             for (int i=1; i<lines.length; i++) {
                 int colon=lines[i].indexOf(':');
@@ -466,40 +500,89 @@ public final class CaptureEngine {
             message.callId=message.headers.getOrDefault("call-id","");
             message.from=message.headers.getOrDefault("from",""); message.to=message.headers.getOrDefault("to","");
             message.cseq=message.headers.getOrDefault("cseq","");
+            message.src=canonical(message.src);message.dst=canonical(message.dst);message.firstLine=canonical(message.firstLine);message.callId=canonical(message.callId);message.from=canonical(message.from);message.to=canonical(message.to);
+            if(result.mediaStore!=null){result.mediaStore.sipMemoryBytes+=bodyStart+bodyLen-cursor;if(result.mediaStore.sipMemoryBytes>SIP_MEMORY)message.spill(result.mediaStore,data,cursor,bodyStart+bodyLen-cursor,bodyStart,bodyLen,storedAt<0?-1:storedAt+cursor);}
             result.sip.add(message);
-            if (result.sip.size()>30000) throw new IOException("SIP 消息超过 3 万条，请缩小抓包范围");
+            if(activeProgress!=null&&result.sip.size()%5000==0)activeProgress.stage("SIP 消息解析 · "+result.sip.size()+" 条");
+            if (result.sip.size()>(result.mediaStore==null?30000:MAX_DESKTOP_SIP)) throw new IOException(result.mediaStore==null?"SIP 消息超过 3 万条，请缩小抓包范围":"SIP 消息超过 50 万条，请按目标连接或时间范围过滤后导入");
             cursor=bodyStart+bodyLen;
             while (cursor<data.length && (data[cursor]==13 || data[cursor]==10)) cursor++;
         }
     }
+    private static Map<String,String> parseHeaders(String head){
+        Map<String,String> out=new LinkedHashMap<>();String[] lines=head.replaceAll("\r?\n[ \t]+"," ").split("\r?\n");
+        for(int i=1;i<lines.length;i++){int colon=lines[i].indexOf(':');if(colon<=0)continue;String k=lines[i].substring(0,colon).trim().toLowerCase(Locale.ROOT);if(k.equals("i"))k="call-id";if(k.equals("f"))k="from";if(k.equals("t"))k="to";if(k.equals("l"))k="content-length";if(k.equals("c"))k="content-type";out.put(k,lines[i].substring(colon+1).trim());}return out;
+    }
+    /** Read one bounded SIP message at a time, preserving the timestamp of its first byte. */
+    private void sip(SignalingTransport.Data input)throws IOException{
+        int cursor=input.recoverSip?recoveredSipStart(input):0;if(cursor<0){result.warn("TLS 缺口后的已认证数据未找到完整 SIP 消息");return;}
+        if(cursor>0)result.warn("TLS 恢复段从半条 SIP 开始，已跳过前 "+cursor+" 字节，保留后续完整消息");
+        while(cursor<input.length()){
+            if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
+            byte[] head=input.bytes(cursor,Math.min(2048,input.length()-cursor));int skip=0;while(skip<head.length&&(head[skip]==13||head[skip]==10))skip++;
+            if(skip>0){cursor+=skip;continue;}if(!looksSip(head,0))break;
+            int end=-1,delimiter=0;for(int i=0;i+1<head.length;i++){if(i+3<head.length&&head[i]==13&&head[i+1]==10&&head[i+2]==13&&head[i+3]==10){end=i;delimiter=4;break;}if(head[i]==10&&head[i+1]==10){end=i;delimiter=2;break;}}
+            if(end<0&&head.length<Math.min(65540,input.length()-cursor)){head=input.bytes(cursor,Math.min(65540,input.length()-cursor));for(int i=0;i+1<head.length;i++){if(i+3<head.length&&head[i]==13&&head[i+1]==10&&head[i+2]==13&&head[i+3]==10){end=i;delimiter=4;break;}if(head[i]==10&&head[i+1]==10){end=i;delimiter=2;break;}}}
+            if(end<0){result.warn("SIP 头不完整");return;}
+            Map<String,String> headers=parseHeaders(new String(head,0,end,StandardCharsets.UTF_8));int body=0;
+            try{if(headers.containsKey("content-length"))body=Integer.parseInt(headers.get("content-length"));else if(input.transport.equals("WS")||input.transport.equals("WSS"))body=input.length()-cursor-end-delimiter;}catch(NumberFormatException e){result.warn("SIP Content-Length 无效");return;}
+            if(body<0||body>4*1024*1024){result.warn("SIP 消息体长度超出限制");return;}int count=end+delimiter+body;if(count>input.length()-cursor){result.warn("SIP 消息体不完整");return;}
+            byte[] message=count<=head.length?Arrays.copyOf(head,count):input.bytes(cursor,count);sip(message,input.src,input.dst,input.transport,input.time(cursor),null,input.store==result.mediaStore&&input.store!=null?input.offset+cursor:-1);cursor+=count;
+        }
+    }
+    /** Search only authenticated post-gap plaintext; never join incomplete messages across gaps. */
+    private int recoveredSipStart(SignalingTransport.Data input)throws IOException{
+        boolean lineStart=true;
+        for(int base=0;base<input.length();){
+            if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
+            int step=Math.min(65536,input.length()-base);byte[] b=input.bytes(base,Math.min(step+256,input.length()-base));
+            for(int i=0;i<step;i++){
+                if(lineStart&&b[i]>='A'&&b[i]<='Z'&&looksSip(b,i)&&completeSipAt(input,base+i))return base+i;
+                lineStart=b[i]==10;
+            }
+            base+=step;
+        }
+        return -1;
+    }
+    private boolean completeSipAt(SignalingTransport.Data input,int at)throws IOException{
+        byte[] b=input.bytes(at,Math.min(65540,input.length()-at));int end=-1,delimiter=0;
+        for(int i=0;i+1<b.length;i++){if(i+3<b.length&&b[i]==13&&b[i+1]==10&&b[i+2]==13&&b[i+3]==10){end=i;delimiter=4;break;}if(b[i]==10&&b[i+1]==10){end=i;delimiter=2;break;}}
+        if(end<0)return false;Map<String,String> h=parseHeaders(new String(b,0,end,StandardCharsets.UTF_8));
+        if(h.getOrDefault("call-id","").isEmpty()||!h.getOrDefault("cseq","").matches("[0-9]+[ \\t]+[A-Z][A-Z0-9_-]*"))return false;
+        try{int body=Integer.parseInt(h.getOrDefault("content-length","0"));return body>=0&&body<=4*1024*1024&&end+delimiter+body<=input.length()-at;}catch(NumberFormatException e){return false;}
+    }
     private void finish(Progress progress,boolean deferMedia) throws IOException {
         List<SignalingTransport.Data> signals=new ArrayList<>();int direction=0;
         for (TcpFlow f : tcp) {
+            if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
             final int id=direction++;boolean gap=false;
             f.segments.sort((a,b)->Long.compare((int)(a.seq-f.anchor),(int)(b.seq-f.anchor)));
-            ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+            SignalingTransport.Buffer buffer=new SignalingTransport.Buffer(result.mediaStore);
             List<Span> spans=new ArrayList<>();
             long position=Long.MIN_VALUE, time=0;
             for (Segment s : f.segments) {
+                if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
                 long start=(int)(s.seq-f.anchor);
                 if (position!=Long.MIN_VALUE && start>position) {
-                    if (buffer.size()>0) signals.add(new SignalingTransport.Data(f.src,f.dst,buffer.toByteArray(),spans,id,gap));
-                    buffer.reset(); spans.clear(); result.warn("TCP 数据有缺口，部分 SIP 可能缺失"); position=start;gap=true;
+                    if (buffer.size>0) signals.add(buffer.data(f.src,f.dst,spans,id,gap));
+                    buffer=new SignalingTransport.Buffer(result.mediaStore);spans.clear(); result.warn("TCP 数据有缺口，部分 SIP 可能缺失"); position=start;gap=true;
                 }
                 if (position==Long.MIN_VALUE) position=start;
-                int skip=(int)Math.min(s.data.length,Math.max(0,position-start));
-                if (skip<s.data.length) {
-                    if (buffer.size()==0) time=s.time;
-                    spans.add(new Span(buffer.size(),s.time));
-                    buffer.write(s.data,skip,s.data.length-skip); position=start+s.data.length;
+                int skip=(int)Math.min(s.length,Math.max(0,position-start));
+                if (skip<s.length) {
+                    if (buffer.size==0) time=s.time;
+                    spans.add(new Span(buffer.size,s.time));
+                    byte[] bytes=s.data==null?result.mediaStore.bytes(s.offset,s.length):s.data;buffer.write(bytes,skip,s.length-skip); position=start+s.length;
                 }
             }
-            if (buffer.size()>0) signals.add(new SignalingTransport.Data(f.src,f.dst,buffer.toByteArray(),spans,id,gap));
+            if (buffer.size>0) signals.add(buffer.data(f.src,f.dst,spans,id,gap));
             f.segments.clear();
         }
         tcp.clear(); currentTcp.clear();
-        SignalingTransport.decode(signals,keyLog,rsaKeys,result,data->sip(data.bytes,data.src,data.dst,data.transport,data.time(0),data.spans));
+        if(progress!=null)progress.stage("TLS 解密与 SIP 消息解析");
+        SignalingTransport.decode(signals,keyLog,rsaKeys,result,this::sip);
         result.sip.sort(Comparator.comparingLong(m->m.timeUs));
+        result.indexSip();
         for (SipMessage m : result.sip) {
             if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
             if (m.callId.isEmpty()) continue;
@@ -583,7 +666,7 @@ public final class CaptureEngine {
     }
     private void sdp(SipMessage message) {
         String sessionIp=""; Media current=null; boolean mediaSection=false;
-        for (String line : message.body.split("\r?\n")) {
+        for (String line : message.body().split("\r?\n")) {
             String value=line.length()>2?line.substring(2).trim():"";
             if (line.startsWith("m=")) {
                 mediaSection=true;

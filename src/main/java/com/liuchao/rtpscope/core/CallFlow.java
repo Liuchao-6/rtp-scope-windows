@@ -36,9 +36,9 @@ public final class CallFlow {
         CallFlow flow=new CallFlow();if(analysis==null)return flow;
         String query=search==null?"":search.toLowerCase(Locale.ROOT);
         long origin=Long.MAX_VALUE;
-        for(SipMessage m:analysis.sip)if(accept(callId,m.callId)) {
+        for(SipMessage m:analysis.messagesFor(callId))if(accept(callId,m.callId)) {
             origin=Math.min(origin,m.timeUs);
-            if(matches(m.searchable(),query))flow.entries.add(new Entry(m.timeUs,m.src,m.dst,sipTitle(m),m.transport+" · CSeq "+m.cseq,m));
+            if(query.isEmpty()||matches(m.searchable(),query))flow.entries.add(new Entry(m.timeUs,m.src,m.dst,sipTitle(m),m.transport+" · CSeq "+m.cseq,m));
         }
         for(RtpStream s:analysis.streams)if(accept(callId,s.callId)&&!s.packets.isEmpty()) {
             long first=Long.MAX_VALUE,last=Long.MIN_VALUE;
@@ -67,7 +67,7 @@ public final class CallFlow {
         String title=m.firstLine;
         if(!title.startsWith("SIP/")){int space=title.indexOf(' ');if(space>0)title=title.substring(0,space);}
         else if(title.startsWith("SIP/2.0 "))title=title.substring(8);
-        if(m.body!=null&&m.body.trim().startsWith("v="))title+=" / SDP";
+        if(m.hasSdpBody())title+=" / SDP";
         return title;
     }
     private static boolean accept(String filter,String id){return filter==null||filter.isEmpty()||filter.equals(id);}

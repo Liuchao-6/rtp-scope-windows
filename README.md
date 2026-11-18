@@ -4,9 +4,9 @@
 
 **SIP · RTP 通话分析**，适用于 Windows 10 / 11 64 位，文件分析和语音识别均在本机完成。
 
-[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.10.0/ChaogeHuatan-0.10.0-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [抓包图文教程](docs/windows-capture.md) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
+[下载便携版](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.10.2/ChaogeHuatan-0.10.2-win-x64.zip) · [离线语音模型](https://github.com/Liuchao-6/rtp-scope-windows/releases/download/v0.8.4/Huatan-SenseVoice-int8.zip) · [抓包图文教程](docs/windows-capture.md) · [Android 版](https://github.com/Liuchao-6/rtp-scope-android) · [反馈](https://github.com/Liuchao-6/rtp-scope-windows/issues)
 
-**0.10.0**：新增本机抓包，支持多网卡、分卷 / 循环保存、实时通话查找、通话保留、不中断抓包的分析快照和本地任务恢复。抓包需另装 Npcap。
+**0.10.2 正式版**：修复“早期 TLS 握手＋后续通话”合并包只解析前段的问题，支持适用的 TLS 1.2 AES-GCM 连接在断档后经认证恢复；保留大量信令包的磁盘缓存与按通话查看功能。
 
 ## 解决的痛点
 
@@ -114,7 +114,7 @@
 - TCP / TLS 单通话导出会包含完整关联连接，同连接可能存在其他通话。报告遮蔽不改变原始 PCAP 和音频。
 - 对照未见、序号缺口与到达延迟只反映当前抓包所见；候选关联不等于已确认同一通话，声道不等于人物身份。
 - 未加载解密密钥时复用解析索引；文件、解析版本或密钥变化时重新分析。索引存于用户目录 `.chaoge-huatan/index`，最多约 2 GiB；媒体临时缓存另需预留空间。
-- 最多 2000 万包、3 万条 SIP 消息，TCP 重组上限 24 MiB。离线分析无需 Wireshark；「本机抓包」需另装 Npcap。
+- 单文件最多 1 GiB、2000 万包、50 万条 SIP 消息；Windows TCP 重组不再受原 24 MiB 限制。大量信令原文按需从本地临时缓存读取，关闭文件后清理；导入长连接时建议临时目录预留抓包大小约 4 倍的磁盘空间。合并包需包含同一连接的完整初始握手及匹配密钥。TLS 1.2 AES-GCM 可在已验证的显式 IV 连续计数规律下恢复断档后的记录，每条记录仍校验认证标签；缺失数据不补造，TLS 1.3、CBC 等套件的跨缺口恢复暂不支持。离线分析无需 Wireshark；「本机抓包」需另装 Npcap。
 - 检查更新只读取 GitHub 公开版本信息，不上传抓包、录音或密钥；无需 GitHub 登录。网络不可用时仍可分析本地文件，启动检查失败时不弹窗。更新设置存于用户目录 `.chaoge-huatan/update.properties`；支持系统代理，网络环境仍需能访问 GitHub。
 
 ## 构建

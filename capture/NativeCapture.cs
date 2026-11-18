@@ -10,7 +10,7 @@ using System.Net.NetworkInformation;
 using System.Security.Principal;
 
 [assembly: System.Reflection.AssemblyTitle("超哥话探 · 本机抓包组件")]
-[assembly: System.Reflection.AssemblyVersion("0.10.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.10.2.0")]
 internal static partial class NativeCapture {
     const int Snaplen=262144;
     const long QueueLimit=32L*1024*1024;

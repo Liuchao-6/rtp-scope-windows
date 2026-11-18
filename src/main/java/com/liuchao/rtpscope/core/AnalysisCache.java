@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Private versioned index. Media is restored to a disk store, never materialised as a large byte array. */
 public final class AnalysisCache {
-    private static final String VERSION="huatan-index-4";
+    private static final String VERSION="huatan-index-6";
     static final ThreadLocal<PacketStore> restoring=new ThreadLocal<>();
     private final File directory;
     private final long capacity;
@@ -30,7 +30,7 @@ public final class AnalysisCache {
             long count,next;public int read()throws IOException{checkCancelled();int n=super.read();if(n>=0)report(1);return n;}public int read(byte[] b,int off,int len)throws IOException{checkCancelled();int n=in.read(b,off,len);if(n>0)report(n);return n;}private void report(int n){count+=n;if(progress!=null&&count>=next){progress.update(count,0);next=count+4*1024*1024;}}
         },262144))){
             if(!VERSION.equals(in.readUTF()))throw new IOException("索引版本变化");
-            Analysis a=(Analysis)in.readObject();store.seal();a.mediaStore=store;f.setLastModified(System.currentTimeMillis());return a;
+            Analysis a=(Analysis)in.readObject();store.seal();a.mediaStore=store;a.indexSip();f.setLastModified(System.currentTimeMillis());return a;
         }catch(ClassNotFoundException|RuntimeException|IOException e){store.close();if(Thread.currentThread().isInterrupted()||e instanceof InterruptedIOException)throw new InterruptedIOException("导入已取消");f.delete();return null;}finally{restoring.remove();}
     }
     public void save(String key,Analysis a)throws IOException{

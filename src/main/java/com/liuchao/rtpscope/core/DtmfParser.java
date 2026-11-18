@@ -23,7 +23,7 @@ public final class DtmfParser {
         public String stateText(){return type==Type.SIP_INFO?"INFO 请求":ended?"已结束":"未见结束";}
         public String detailText(){
             String common="类型："+typeLabel()+"\n持续："+durationText()+"\n状态："+stateText();
-            if(type==Type.SIP_INFO)return common+"\n事务包数（含重传）："+packets+"\n音频方向："+(audioSrc.isEmpty()?"无法唯一确定":audioSrc+" → "+audioDst)+"\n\n"+(signaling==null?"":signaling.raw);
+            if(type==Type.SIP_INFO)return common+"\n事务包数（含重传）："+packets+"\n音频方向："+(audioSrc.isEmpty()?"无法唯一确定":audioSrc+" → "+audioDst)+"\n\n"+(signaling==null?"":signaling.raw());
             String rtp=String.format(Locale.ROOT,"\nSSRC：%08X\nRTP 时间戳：%d",ssrc,timestamp);
             if(type==Type.IN_BAND)return common+String.format(Locale.ROOT,"\n检测音量：%.1f dBFS",levelDbfs)+rtp+"\n\n基于每个方向的解码音频检测；语音或噪声可能误判，建议定位试听。";
             return common+"\n音量：-"+volume+" dBm0\n事件包："+packets+rtp;

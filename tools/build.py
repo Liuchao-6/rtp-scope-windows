@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,json,os,shutil,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.10.0'
+VERSION='0.10.2'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'
@@ -67,6 +67,11 @@ def main():
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.CaptureV2Test',BUILD])
         run([JAVA,'-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.AudioProbe',BUILD/'demo-desktop.wav',BUILD/'audio-probe.txt'])
         run([JAVA,'-Xmx160m','-cp',cp,'LargeCaptureTest',ROOT/'tests/fixtures',BUILD])
+        run([sys.executable,ROOT/'tools/make_long_signaling.py',BUILD/'long-signaling'])
+        run([JAVA,'-ea','-Xmx160m','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.LongSignalingTest',ROOT/'tests/fixtures',BUILD])
+        run([JAVA,'-ea','-Xmx384m','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.LongSignalingTest',ROOT/'tests/fixtures',BUILD,'--ordinary'])
+        run([sys.executable,ROOT/'tools/make_tls_gap_fixtures.py',BUILD/'tls-gaps'])
+        run([JAVA,'-ea','-Xmx160m','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.TlsGapRecoveryTest',ROOT/'tests/fixtures',BUILD])
     if '--test-only' in sys.argv:return
     staging=BUILD/'release';staging.mkdir(exist_ok=True)
     product=staging/('ChaogeHuatan-'+VERSION+'-win-x64')

@@ -76,7 +76,7 @@ public final class CallHealth {
         boolean ack=false;Set<String> seen=new HashSet<>();int retries=0;
         for(SipMessage m:ms){
             if(method(m).equals("ACK")&&h.answerUs>=0&&m.timeUs>=h.answerUs&&number(m.cseq).equals(number(h.answer.cseq))&&dialog(h,m))ack=true;
-            String key=m.src+"|"+m.dst+"|"+m.raw;if(!seen.add(key))retries++;
+            String key=m.src+"|"+m.dst+"|"+m.raw();if(!seen.add(key))retries++;
             int code=status(m);if(code>=400)h.findings.add(new Finding(code==401||code==407?"信息":"关注","SIP 响应",m.firstLine,m));
         }
         if(h.answer!=null&&!ack)h.findings.add(new Finding("关注","ACK 未捕获","需结合抓包范围确认",h.answer));

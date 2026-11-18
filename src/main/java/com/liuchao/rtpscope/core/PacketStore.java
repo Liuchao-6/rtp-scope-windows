@@ -4,12 +4,13 @@ import com.liuchao.rtpscope.core.CaptureEngine.RtpPacket;
 import java.io.*;
 import java.util.*;
 
-/** Disk-backed packet metadata and payloads; only per-stream offsets stay in memory. */
+/** Disk-backed packet metadata, payloads and signaling; offsets stay in memory. */
 public final class PacketStore implements Closeable {
     private final File file;
     private DataOutputStream writer;
     private RandomAccessFile reader;
-    private long position,cacheAt=-1;
+    private long position,flushed,cacheAt=-1;
+    long sipMemoryBytes;
     private final byte[] cache=new byte[262144];
     private int cached;
     private boolean closed;
@@ -17,14 +18,20 @@ public final class PacketStore implements Closeable {
     private int leases;
     PacketStore(File directory)throws IOException{
         file=File.createTempFile("chaoge-huatan-media-",".cache",directory);file.deleteOnExit();
-        try{writer=new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file),262144));}catch(IOException e){file.delete();throw e;}
+        try{writer=new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file),262144));reader=new RandomAccessFile(file,"r");}catch(IOException e){if(writer!=null)writer.close();file.delete();throw e;}
     }
     long append(long time,long timestamp,int sequence,boolean marker,byte[] payload,int from,int end)throws IOException{
         long at=position;writer.writeLong(time);writer.writeLong(timestamp);writer.writeInt(sequence);writer.writeBoolean(marker);writer.writeInt(end-from);writer.write(payload,from,end-from);position+=25L+end-from;return at;
     }
-    void seal()throws IOException{writer.close();writer=null;reader=new RandomAccessFile(file,"r");}
+    long position(){return position;}
+    long appendBytes(byte[] bytes,int offset,int length)throws IOException{
+        if(writer==null||closed)throw new IOException("抓包缓存已关闭");long at=position;writer.write(bytes,offset,length);position+=length;return at;
+    }
+    void seal()throws IOException{if(writer!=null){writer.close();writer=null;flushed=position;cacheAt=-1;cached=0;}}
     synchronized byte[] bytes(long offset,int length)throws IOException{
         if(closed||reader==null)throw new IOException("媒体缓存已关闭，请重新导入抓包");
+        if(writer!=null&&flushed!=position){writer.flush();flushed=position;cacheAt=-1;cached=0;}
+        if(length==0)return new byte[0];
         if(offset<cacheAt||offset+length>cacheAt+cached){reader.seek(offset);cacheAt=offset;cached=reader.read(cache);}
         if(length<=cached){return Arrays.copyOfRange(cache,(int)(offset-cacheAt),(int)(offset-cacheAt)+length);}
         byte[] out=new byte[length];reader.seek(offset);reader.readFully(out);return out;

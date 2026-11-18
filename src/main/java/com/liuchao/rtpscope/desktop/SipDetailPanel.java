@@ -28,7 +28,7 @@ public final class SipDetailPanel extends JPanel {
     public void setStatusListener(Consumer<String> listener){status=listener;}
     public void showSip(SipMessage message) {
         title.setText(CallFlow.sipTitle(message));metadata.setText("时间："+Ui.stamp(message.timeUs)+"  ·  "+message.transport+"\n源："+message.src+"\n目的："+message.dst);metadata.setToolTipText("CSeq："+message.cseq+"  ·  Call-ID："+message.callId);
-        setRaw(message.raw,true);
+        setRaw(message.raw(),true);
     }
     public void showText(String heading,String context,String content){title.setText(heading);metadata.setText(context);setRaw(content,false);}
     public String original(){return original;}

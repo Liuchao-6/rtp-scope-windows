@@ -16,7 +16,7 @@ import static com.liuchao.rtpscope.core.SignalingTransport.Data;
 
 /** Authenticated offline TLS records using NSS secrets or RSA key-exchange private keys. */
 final class TlsDecoder {
-    private static final class Record {int type,version;byte[] body,header;long time;}
+    private static final class Record {int type,version,at,length;Data source;byte[] header;long time;boolean gap;byte[] body()throws IOException{return source.bytes(at,length);}}
     private static final class Handshake {int type;byte[] raw,body;}
     private static final class Hello {byte[] random;int suite,version;long time;boolean etm,ems;}
     private static final class Direction {int id;String src,dst;List<Record> records=new ArrayList<>();List<Handshake> handshakes=new ArrayList<>();Hello client,server;}
@@ -30,14 +30,16 @@ final class TlsDecoder {
         List<Data> output=new ArrayList<>();Map<Integer,Direction> directions=new LinkedHashMap<>();Set<Integer> plain=new HashSet<>();
         for(Data input:inputs){
             Direction direction=directions.get(input.direction);
-            if(direction==null){if(plain.contains(input.direction)||!tls(input.bytes)){plain.add(input.direction);output.add(input);continue;}direction=new Direction();direction.id=input.direction;direction.src=input.src;direction.dst=input.dst;directions.put(direction.id,direction);}
-            if(input.gap){analysis.warn("TLS 所在 TCP 数据有缺口，已停止该方向解密");continue;}
-            for(int at=0;at<input.bytes.length;){
-                if(input.bytes.length-at<5){analysis.warn("TLS 记录尾不完整，已保留完整记录");break;}
-                byte[] b=input.bytes;int type=b[at]&255,len=u16(b,at+3);
-                if(type<20||type>24||b[at+1]!=3||len>18432){analysis.warn("TLS 记录边界无效，已停止该方向解密");break;}
-                if(len>input.bytes.length-at-5){analysis.warn("TLS 记录不完整，已保留完整记录");break;}
-                Record record=new Record();record.type=type;record.version=u16(b,at+1);record.header=Arrays.copyOfRange(b,at,at+5);record.body=Arrays.copyOfRange(b,at+5,at+5+len);record.time=input.time(at);direction.records.add(record);at+=5+len;
+            if(direction==null){if(plain.contains(input.direction)||!tls(input.bytes(0,Math.min(3,input.length())))){plain.add(input.direction);output.add(input);continue;}direction=new Direction();direction.id=input.direction;direction.src=input.src;direction.dst=input.dst;directions.put(direction.id,direction);}
+            int start=0;
+            if(input.gap){start=recordBoundary(input);if(start<0){analysis.warn("TLS 缺口后未找到完整记录边界，已跳过该段");continue;}if(start>0)analysis.warn("TLS 缺口后的半条记录已跳过，后续记录仍会校验认证");}
+            for(int at=start;at<input.length();){
+                if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
+                if(input.length()-at<5){analysis.warn("TLS 记录尾不完整，已保留完整记录");break;}
+                byte[] b=input.bytes(at,5);int type=b[0]&255,len=u16(b,3);
+                if(type<20||type>24||b[1]!=3||len>18432){analysis.warn("TLS 记录边界无效，已停止该方向解密");break;}
+                if(len>input.length()-at-5){analysis.warn("TLS 记录不完整，已保留完整记录");break;}
+                Record record=new Record();record.type=type;record.version=u16(b,1);record.header=b;record.source=input;record.at=at+5;record.length=len;record.time=input.time(at);record.gap=input.gap&&at==start;direction.records.add(record);at+=5+len;
             }
         }
         for(Direction d:directions.values())readHellos(d,analysis);
@@ -64,11 +66,22 @@ final class TlsDecoder {
         }
         return output;
     }
+    /** A capture may resume within a record. Require a complete candidate and, when present, the next header. */
+    private static int recordBoundary(Data input)throws IOException{
+        int limit=Math.min(input.length(),18432+5);byte[] b=input.bytes(0,Math.min(input.length(),limit+5));
+        for(int at=0;at+5<=b.length&&at<=limit;at++){
+            int type=b[at]&255,len=u16(b,at+3);if(type<20||type>24||b[at+1]!=3||(b[at+2]&255)>4||len>18432||len>input.length()-at-5)continue;
+            int next=at+5+len;
+            if(next+5<=input.length()){byte[] h=input.bytes(next,5);if(!tls(h)||u16(h,3)>18432)continue;}
+            return at;
+        }
+        return -1;
+    }
     private static void readHellos(Direction direction,CaptureEngine.Analysis analysis)throws IOException {
         ByteArrayOutputStream buffer=new ByteArrayOutputStream();int total=0;
         for(Record record:direction.records){
             if(record.type==20||record.type==23)break;if(record.type!=22)continue;
-            if(total+record.body.length>2*1024*1024){analysis.warn("TLS 初始握手超过 2 MiB，RSA 解密可能缺少握手数据；可导入 key log");break;}total+=record.body.length;buffer.write(record.body);byte[] b=buffer.toByteArray();int at=0;
+            if(total+record.length>2*1024*1024){analysis.warn("TLS 初始握手超过 2 MiB，RSA 解密可能缺少握手数据；可导入 key log");break;}total+=record.length;buffer.write(record.body());byte[] b=buffer.toByteArray();int at=0;
             while(b.length-at>=4){int type=b[at]&255,len=u24(b,at+1);if(len>b.length-at-4)break;
                 if(direction.handshakes.size()>=4096){analysis.warn("TLS 初始握手消息超过解析限制");return;}
                 if((type==1||type==2)&&len>=38){int base=at+4;Hello hello=new Hello();hello.version=u16(b,base);hello.random=Arrays.copyOfRange(b,base+2,base+34);hello.time=record.time;
@@ -143,7 +156,7 @@ final class TlsDecoder {
         }
     }
     private static final class State {
-        final Suite suite;byte[] key,iv,macKey,traffic;long sequence;boolean application,started,finished,implicitIv;ByteArrayOutputStream handshake=new ByteArrayOutputStream();
+        final Suite suite;byte[] key,iv,macKey,traffic;long sequence,nonceBase;int nonceSamples;boolean nonceLinear=true,application,started,finished,implicitIv;ByteArrayOutputStream handshake=new ByteArrayOutputStream();
         State(Suite suite){this.suite=suite;}
         void secret(byte[] value)throws GeneralSecurityException {
             if(value==null||value.length!=(suite.hash.equals("HmacSHA384")?48:32))throw new GeneralSecurityException();
@@ -159,20 +172,35 @@ final class TlsDecoder {
             byte[] block=sessionPrf(session,session.master,"key expansion",join(session.sh.random,session.ch.random),2*(suite.mac+suite.key+ivSize));int n=client?0:suite.mac;
             state.macKey=Arrays.copyOfRange(block,n,n+suite.mac);n=2*suite.mac+(client?0:suite.key);state.key=Arrays.copyOfRange(block,n,n+suite.key);n=2*(suite.mac+suite.key)+(client?0:ivSize);state.iv=Arrays.copyOfRange(block,n,n+ivSize);
         }
-        ByteArrayOutputStream plain=new ByteArrayOutputStream();List<CaptureEngine.Span> stamps=new ArrayList<>();boolean failed=false;
+        SignalingTransport.Buffer plain=new SignalingTransport.Buffer(analysis.mediaStore);List<CaptureEngine.Span> stamps=new ArrayList<>();boolean failed=false,recovered=false;
         for(Record record:direction.records){
+            if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("导入已取消");
+            long skipped=0;
+            if(record.gap){
+                if(plain.size>0)output.add(plaintext(plain,stamps,direction,recovered));
+                plain=new SignalingTransport.Buffer(analysis.mediaStore);stamps.clear();
+                if(suite.tls13||suite.mode!=1||!state.started||state.nonceSamples<1||!state.nonceLinear||record.length<8+suite.tag){analysis.warn("TLS 数据有缺口，此套件或记录序号无法安全恢复；已保留缺口前的解密结果");failed=true;break;}
+                long candidate=explicitNonce(record.body())-state.nonceBase;
+                if(Long.compareUnsigned(candidate,state.sequence)<0){analysis.warn("TLS 缺口后记录序号无法安全恢复；已保留此前解密结果");failed=true;break;}
+                skipped=candidate-state.sequence;state.sequence=candidate;
+            }
             if(!suite.tls13&&record.type==20){if(state.started){analysis.warn("TLS 再协商暂不支持，已保留此前解密的数据");break;}state.started=true;state.sequence=0;continue;}
             if(suite.tls13&&record.type!=23)continue;if(!suite.tls13&&!state.started)continue;
             byte[] decoded;int type=record.type;
             try{
-                if(suite.tls13){decoded=aead(suite,state.key,nonce(state.iv,state.sequence),record.header,record.body);state.sequence++;
+                if(suite.tls13){decoded=aead(suite,state.key,nonce(state.iv,state.sequence),record.header,record.body());state.sequence++;
                     int last=decoded.length-1;while(last>=0&&decoded[last]==0)last--;if(last<0)throw new GeneralSecurityException();type=decoded[last]&255;decoded=Arrays.copyOf(decoded,last);if(type!=21&&type!=22&&type!=23)throw new GeneralSecurityException();state.started=true;
-                }else{decoded=decrypt12(state,record,session.sh.etm);state.sequence++;}
+                }else{
+                    decoded=decrypt12(state,record,session.sh.etm);
+                    if(suite.mode==1){long base=explicitNonce(record.body())-state.sequence;if(state.nonceSamples==0)state.nonceBase=base;else if(base!=state.nonceBase)state.nonceLinear=false;state.nonceSamples++;}
+                    state.sequence++;
+                }
             }catch(InvalidCipherTextException|GeneralSecurityException e){
                 if(suite.tls13&&!state.started&&state.application)continue;
                 analysis.warn("TLS 记录认证失败：会话密钥不匹配、记录缺失或内容损坏；已停止该方向解密");failed=true;break;
             }
-            if(type==23){stamps.add(new CaptureEngine.Span(plain.size(),record.time));plain.write(decoded);}
+            if(record.gap){recovered=true;analysis.warn("TLS 缺口后已恢复 AES-GCM 解密，认证通过；跳过 "+Long.toUnsignedString(skipped)+" 条未捕获记录，仅分析实际抓到的数据");}
+            if(type==23){stamps.add(new CaptureEngine.Span(plain.size,record.time));plain.write(decoded,0,decoded.length);}
             if(suite.tls13&&type==22){
                 if(state.handshake.size()+decoded.length>2*1024*1024){analysis.warn("TLS 握手消息超过解析限制");failed=true;break;}
                 state.handshake.write(decoded);byte[] b=state.handshake.toByteArray();int at=0;
@@ -184,11 +212,13 @@ final class TlsDecoder {
                 state.handshake.reset();state.handshake.write(b,at,b.length-at);if(failed)break;
             }
         }
-        if(plain.size()>0){Data data=new Data(direction.src,direction.dst,plain.toByteArray(),stamps,direction.id,false);data.transport="TLS";output.add(data);}
+        if(plain.size>0)output.add(plaintext(plain,stamps,direction,recovered));
         else if(!failed)analysis.warn("此 TLS 方向未还原出应用数据，请检查握手及会话密钥是否完整");
     }
-    private static byte[] decrypt12(State state,Record record,boolean etm)throws GeneralSecurityException,InvalidCipherTextException {
-        Suite s=state.suite;byte[] body=record.body;
+    private static Data plaintext(SignalingTransport.Buffer plain,List<CaptureEngine.Span> stamps,Direction direction,boolean recovered){Data data=plain.data(direction.src,direction.dst,stamps,direction.id,false);data.transport="TLS";data.recoverSip=recovered;return data;}
+    private static long explicitNonce(byte[] body){long value=0;for(int i=0;i<8;i++)value=(value<<8)|(body[i]&255L);return value;}
+    private static byte[] decrypt12(State state,Record record,boolean etm)throws GeneralSecurityException,InvalidCipherTextException,IOException {
+        Suite s=state.suite;byte[] body=record.body();
         if(s.mode==3){
             if(etm){if(body.length<s.block+(state.implicitIv?0:s.block)+s.mac)throw new GeneralSecurityException();int end=body.length-s.mac;byte[] expected=hmac(s.macHash,state.macKey,join(aad(state.sequence,record,end),Arrays.copyOf(body,end)));if(!MessageDigest.isEqual(expected,Arrays.copyOfRange(body,end,body.length)))throw new GeneralSecurityException();body=Arrays.copyOf(body,end);}
             int explicit=state.implicitIv?0:s.block;if(body.length<explicit+s.block||(body.length-explicit)%s.block!=0)throw new GeneralSecurityException();
