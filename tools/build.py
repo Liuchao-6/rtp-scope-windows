@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,json,os,shutil,subprocess,sys,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.10.2'
+VERSION='0.10.4'
 TOOLS=ROOT/'.tools'; BUILD=ROOT/'build'; DIST=ROOT/'dist'
 RUNTIME=TOOLS/'runtime'
 JAVA=RUNTIME/'bin/java.exe'
@@ -62,6 +62,7 @@ def main():
         cp=os.pathsep.join([str(classes.relative_to(ROOT)),str(tests.relative_to(ROOT)),str(laf.relative_to(ROOT)),str(crypto.relative_to(ROOT)),str(speech.relative_to(ROOT)),str(speech_native.relative_to(ROOT))])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'CoreTest',ROOT/'tests/fixtures',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.NativeFeatureTest',BUILD])
+        run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.Mp3ExportTest',ROOT/'tests/fixtures',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.DesktopTest',ROOT/'tests/fixtures',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.LocalCaptureTest',BUILD])
         run([JAVA,'-ea','-Djava.awt.headless=true','-cp',cp,'com.liuchao.rtpscope.desktop.CaptureV2Test',BUILD])

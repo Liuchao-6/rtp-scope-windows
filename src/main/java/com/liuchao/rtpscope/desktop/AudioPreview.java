@@ -52,6 +52,11 @@ public final class AudioPreview implements Closeable {
         for(WaveformData.Marker m:wave.markers)if(m.kind.equals("DTMF"))preview.keys.add(new Key(m.label,m.startMs,m.endMs-m.startMs,0,m.event));return preview;
     }
     public void exportWav(File target)throws IOException{List<File> files=new ArrayList<>();List<Double> offsets=new ArrayList<>();for(Track track:tracks){files.add(track.audio);offsets.add(track.offsetMs);}PcmTracks.separate(files,offsets,target);}
+    public void exportClip(File target,double startMs,double endMs)throws IOException{
+        List<File> files=new ArrayList<>();List<Double> offsets=new ArrayList<>();
+        for(Track track:tracks){AudioClip.different(track.audio,target);files.add(track.audio);offsets.add(track.offsetMs);}
+        AudioClip.saveAtomically(target,temp->PcmTracks.separateRange(files,offsets,temp,startMs,endMs));
+    }
     public static AudioPreview recording(File input)throws IOException {
         File mixed=File.createTempFile("recording-mixed-",".wav",input.getParentFile());PcmTracks.channel(input,-1,mixed,16000);AudioPreview preview=new AudioPreview(WaveformData.load(mixed,Collections.emptyList()));
         try(PcmFile pcm=new PcmFile(input)){for(int c=0;c<pcm.channels;c++){File solo=File.createTempFile("recording-channel-",".wav",input.getParentFile());PcmTracks.channel(input,c,solo,16000);Track t=new Track(PcmFile.channelName(pcm.channels,c),WaveformData.load(solo,Collections.emptyList()),0);t.audio=solo;preview.tracks.add(t);}}finally{mixed.delete();}return preview;

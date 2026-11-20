@@ -33,18 +33,27 @@ public final class PcmTracks {
     }
     /** One media direction per channel, without muting, gain averaging or parity folding. */
     public static void separate(List<File> files,List<? extends Number> offsetsMs,File target)throws IOException{
+        writeSeparated(files,offsetsMs,target,0,0,false);
+    }
+    public static void separateRange(List<File> files,List<? extends Number> offsetsMs,File target,double startMs,double endMs)throws IOException{
+        writeSeparated(files,offsetsMs,target,startMs,endMs,true);
+    }
+    private static void writeSeparated(List<File> files,List<? extends Number> offsetsMs,File target,double startMs,double endMs,boolean excerpt)throws IOException{
         if(files.isEmpty()||files.size()>64||files.size()!=offsetsMs.size())throw new IOException("导出需要 1～64 路媒体方向");
         List<PcmFile> sources=new ArrayList<>();int rate=8000,channels=files.size();
         try{
             for(File f:files){PcmFile p=new PcmFile(f);sources.add(p);rate=Math.max(rate,p.rate);}
             long[] starts=new long[channels];long frames=0;
             for(int c=0;c<channels;c++){double offset=offsetsMs.get(c).doubleValue();if(!Double.isFinite(offset)||offset<0)throw new IOException("声道偏移无效");starts[c]=Math.round(offset*rate/1000);long length=(long)Math.ceil(sources.get(c).frames*(double)rate/sources.get(c).rate);if(starts[c]>rate*3600L-length)throw new IOException("音频最长 60 分钟");frames=Math.max(frames,starts[c]+length);}
-            if(frames*channels*2>0xffffffffL-60)throw new IOException("导出 WAV 超过 4 GiB，请减少所选媒体方向");
-            try(RandomAccessFile out=new RandomAccessFile(target,"rw")){out.setLength(0);PcmFile.header(out,frames,rate,channels);
+            long firstFrame=0,lastFrame=frames;
+            if(excerpt){AudioClip.validateRange(startMs,endMs,frames*1000.0/rate);firstFrame=Math.round(startMs*rate/1000);lastFrame=Math.min(frames,Math.round(endMs*rate/1000));if(lastFrame<=firstFrame)throw new IOException("截取范围不足一个音频采样帧");}
+            if((lastFrame-firstFrame)*channels*2>0xffffffffL-60)throw new IOException("导出 WAV 超过 4 GiB，请减少所选媒体方向");
+            try(RandomAccessFile out=new RandomAccessFile(target,"rw")){out.setLength(0);PcmFile.header(out,lastFrame-firstFrame,rate,channels);
                 int block=Math.min(rate,4096);
-                for(long at=0;at<frames;at+=block){cancel();int count=(int)Math.min(block,frames-at);byte[] bytes=new byte[count*channels*2];
+                for(long at=firstFrame/block*block;at<lastFrame;at+=block){cancel();int count=(int)Math.min(block,frames-at);byte[] bytes=new byte[count*channels*2];
                     for(int c=0;c<channels;c++){PcmFile p=sources.get(c);long length=(long)Math.ceil(p.frames*(double)rate/p.rate),first=Math.max(at,starts[c]),end=Math.min(at+count,starts[c]+length);if(end<=first)continue;long sourceAt=Math.round((first-starts[c])*(double)p.rate/rate);int requested=(int)Math.min(p.frames-sourceAt,Math.ceil((end-first)*(double)p.rate/rate));float[] data=p.readFrames(sourceAt,requested,-1,rate);int offset=(int)(first-at);for(int j=0;j<data.length&&offset+j<count;j++)sample(bytes,((offset+j)*channels+c)*2,data[j]);}
-                    out.write(bytes);
+                    int skip=(int)Math.max(0,firstFrame-at),take=(int)(Math.min(at+count,lastFrame)-at)-skip;
+                    out.write(bytes,skip*channels*2,take*channels*2);
                 }
             }
         }catch(IOException|RuntimeException e){target.delete();throw e;}finally{for(PcmFile p:sources)p.close();}

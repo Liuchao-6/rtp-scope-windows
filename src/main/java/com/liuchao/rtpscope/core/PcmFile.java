@@ -54,12 +54,17 @@ public final class PcmFile implements Closeable {
     public static String channelName(int count,int channel){return count==1?"单声道":count==2?(channel==0?"左声道":"右声道"):"声道 "+(channel+1);}
     private static byte[] guid(int format){return new byte[]{(byte)format,0,0,0,0,0,0x10,0,(byte)0x80,0,0,(byte)0xaa,0,0x38,(byte)0x9b,0x71};}
     public static void header(RandomAccessFile out,long frames,int rate,int channels)throws IOException{
+        header(out,frames,rate,channels,16,1);
+    }
+    public static void header(RandomAccessFile out,long frames,int rate,int channels,int bits,int format)throws IOException{
         boolean extended=channels>2;int extra=extended?24:0;
-        if(channels<1||channels>64||frames<0||rate<1000||rate>384000||frames>(0xffffffffL-36-extra)/(channels*2))throw new IOException("WAV 声道数、采样率或大小超出支持范围");
-        out.writeBytes("RIFF");writeLe(out,36+extra+frames*channels*2,4);out.writeBytes("WAVEfmt ");writeLe(out,16+extra,4);writeLe(out,extended?0xfffe:1,2);writeLe(out,channels,2);writeLe(out,rate,4);writeLe(out,rate*channels*2,4);writeLe(out,channels*2,2);writeLe(out,16,2);
+        if(!((format==1&&(bits==8||bits==16||bits==24||bits==32))||(format==3&&bits==32)))throw new IOException("不支持此 PCM 编码");
+        int frameBytes=channels*(bits/8);long dataBytes=frames*frameBytes,padded=dataBytes+(dataBytes&1);
+        if(channels<1||channels>64||frames<0||rate<1000||rate>384000||frames>(0xffffffffL-37-extra)/Math.max(1,frameBytes))throw new IOException("WAV 声道数、采样率或大小超出支持范围");
+        out.writeBytes("RIFF");writeLe(out,36+extra+padded,4);out.writeBytes("WAVEfmt ");writeLe(out,16+extra,4);writeLe(out,extended?0xfffe:format,2);writeLe(out,channels,2);writeLe(out,rate,4);writeLe(out,rate*frameBytes,4);writeLe(out,frameBytes,2);writeLe(out,bits,2);
         // These channels represent media directions, so no physical speaker layout is assigned.
-        if(extended){writeLe(out,22,2);writeLe(out,16,2);writeLe(out,0,4);out.write(guid(1));}
-        out.writeBytes("data");writeLe(out,frames*channels*2,4);
+        if(extended){writeLe(out,22,2);writeLe(out,bits,2);writeLe(out,0,4);out.write(guid(format));}
+        out.writeBytes("data");writeLe(out,dataBytes,4);
     }
     public static void writeLe(RandomAccessFile out,long n,int size)throws IOException{for(int i=0;i<size;i++)out.write((int)(n>>>(8*i)));}
 }

@@ -17,7 +17,7 @@ import com.liuchao.rtpscope.core.CaptureEngine.*;
 
 /** Windows desktop shell. Parsing/decoding/file operations run outside the Swing event thread. */
 public final class DesktopApp extends JPanel {
-    public static final String VERSION="0.10.2";
+    public static final String VERSION="0.10.4";
     private final UpdateManager updates=new UpdateManager(this);
     public final DesktopModel model=new DesktopModel();
     public final FlowPanel flow=new FlowPanel();
@@ -44,8 +44,9 @@ public final class DesktopApp extends JPanel {
     private Analysis pendingPrevious;
     private final JButton cancelImport=Ui.button("取消导入",false);
     private final JLabel summary=Ui.label("导入 PCAP / PCAPNG，或先体验演示",12,Ui.MUTED),fileTitle=Ui.label("打开抓包，查看通话",14,Ui.INK),filter=Ui.label("全部通话",13,Ui.ACCENT),status=Ui.label("就绪 · 本地离线分析",11,Ui.MUTED),audioTitle=Ui.label("选择媒体流，还原音频后显示波形",13,Ui.INK),clock=Ui.label("00:00.000 / 00:00.000",12,Ui.MUTED),keySummary=Ui.label("生成波形后显示按键信息",12,Ui.POSITIVE);
-    private final JButton importButton=Ui.button("导入抓包",true),demoButton=Ui.button("体验演示",false),captureButton=Ui.button("本机抓包",false),playSelected=Ui.button("播放选中",true),toggle=Ui.button("播放 / 暂停",false),export=Ui.button("导出 WAV",false),warnings=Ui.button("分析提示",false);
+    private final JButton importButton=Ui.button("导入抓包",true),demoButton=Ui.button("体验演示",false),captureButton=Ui.button("本机抓包",false),playSelected=Ui.button("播放选中",true),toggle=Ui.button("播放 / 暂停",false),export=Ui.button("导出音频",false),warnings=Ui.button("分析提示",false);
     private final JSlider seek=new JSlider(0,10000,0);
+    private final JButton clipAudio=Ui.button("截取音频",false);
     private final JPanel playerBody=new JPanel(new BorderLayout(Ui.u(10),Ui.u(6)));
     private final JButton playerVisibility=Ui.button("展开播放器",false),compactToggle=Ui.button("播放",false);
     private final JLabel compactClock=Ui.label("",12,Ui.MUTED);
@@ -113,7 +114,7 @@ public final class DesktopApp extends JPanel {
         playerVisibility.setName("playerVisibility");compactToggle.setName("compactPlayback");playerVisibility.setToolTipText("收起波形和播放控件，声音继续播放");playerVisibility.addActionListener(e->setPlayerExpanded(!playerExpanded));compactToggle.addActionListener(e->togglePlayback());
         JScrollPane waveScroll=new JScrollPane(waveform,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER){public Dimension getPreferredSize(){Dimension size=super.getPreferredSize();int limit=DesktopApp.this.getHeight()>0&&DesktopApp.this.getHeight()<Ui.u(820)?140:232;size.height=Math.min(Ui.u(limit),size.height);return size;}};waveScroll.setBorder(null);waveScroll.getVerticalScrollBar().setUnitIncrement(Ui.u(32));JScrollBar wavePan=new JScrollBar(JScrollBar.HORIZONTAL);wavePan.setVisible(false);JPanel waveArea=new JPanel(new BorderLayout());waveArea.add(waveScroll,BorderLayout.CENTER);waveArea.add(wavePan,BorderLayout.SOUTH);playerBody.add(waveArea,BorderLayout.CENTER);
         JPanel controls=new JPanel(new BorderLayout(Ui.u(10),Ui.u(5)));JPanel progress=new JPanel(new BorderLayout(Ui.u(10),0));progress.add(seek,BorderLayout.CENTER);progress.add(clock,BorderLayout.EAST);controls.add(progress,BorderLayout.NORTH);
-        JPanel buttons=new JPanel(new FlowLayout(FlowLayout.LEFT,Ui.u(7),0));buttons.add(playSelected);buttons.add(toggle);buttons.add(export);buttons.add(Ui.label("音量",11,Ui.MUTED));JSlider volume=new JSlider(0,100,80);volume.setPreferredSize(new Dimension(Ui.u(100),Ui.u(26)));buttons.add(volume);JButton keys=Ui.button("按键列表",false);keys.addActionListener(e->showWaveformKeys());buttons.add(keys);JButton zoomOut=Ui.button("−",false),zoomIn=Ui.button("＋",false),fit=Ui.button("全览",false);JLabel zoomLabel=Ui.label("1×",11,Ui.MUTED);buttons.add(zoomOut);buttons.add(zoomIn);buttons.add(fit);buttons.add(zoomLabel);
+        JPanel buttons=new JPanel(new FlowLayout(FlowLayout.LEFT,Ui.u(7),0));buttons.add(playSelected);buttons.add(toggle);buttons.add(export);buttons.add(clipAudio);clipAudio.setName("clipRtpAudio");clipAudio.setToolTipText("选择音频片段并另存为 WAV，各媒体方向保留独立声道");clipAudio.addActionListener(e->clipAudio());buttons.add(Ui.label("音量",11,Ui.MUTED));JSlider volume=new JSlider(0,100,80);volume.setPreferredSize(new Dimension(Ui.u(100),Ui.u(26)));buttons.add(volume);JButton keys=Ui.button("按键列表",false);keys.addActionListener(e->showWaveformKeys());buttons.add(keys);JButton zoomOut=Ui.button("−",false),zoomIn=Ui.button("＋",false),fit=Ui.button("全览",false);JLabel zoomLabel=Ui.label("1×",11,Ui.MUTED);buttons.add(zoomOut);buttons.add(zoomIn);buttons.add(fit);buttons.add(zoomLabel);
         JButton listening=Ui.button("试听设置",false);listening.setName("listeningOptions");buttons.add(listening);listening.addActionListener(e->showListeningOptions());
         waveform.setToolTipText("Ctrl＋滚轮缩放，Shift＋滚轮平移；红：缺包，黄：延迟，紫：时间戳衔接，绿：按键");
         final boolean[] updatingPan={false};Runnable zoomState=()->{WaveformViewport v=waveform.viewport();zoomLabel.setText(String.format(Locale.ROOT,"%.1f×",v.zoom()));boolean ready=waveform.preview()!=null;zoomOut.setEnabled(ready&&v.zoom()>1);zoomIn.setEnabled(ready&&v.zoom()<64);fit.setEnabled(ready);updatingPan[0]=true;int extent=Math.max(1,(int)Math.round(100000/v.zoom()));wavePan.setValues((int)Math.round(v.startMs()/v.durationMs()*100000),extent,0,100000);wavePan.setBlockIncrement(extent);wavePan.setUnitIncrement(Math.max(1,extent/10));wavePan.setVisible(ready&&v.zoom()>1);updatingPan[0]=false;};waveform.setWindowListener(zoomState);zoomState.run();
@@ -404,24 +405,25 @@ public final class DesktopApp extends JPanel {
     private void tick(){long at=player.ready()?player.position():pendingSeek,total=duration();waveform.setPosition(at);if(!seek.getValueIsAdjusting()){updatingSeek=true;seek.setValue(total==0?0:(int)Math.min(10000,at*10000/total));updatingSeek=false;}clock.setText(Ui.clock(at)+" / "+Ui.clock(total));toggle.setText(player.playing()?"暂停":"播放 / 继续");updateCompactPlayer();}
     private void exportWav(){
         AudioPreview preview=waveform.preview();if(currentWav==null||preview==null||busy)return;
-        JFileChooser chooser=new JFileChooser();chooser.setDialogTitle("导出 WAV · "+preview.tracks.size()+" 个独立声道");chooser.setSelectedFile(new File("chaoge-huatan-"+preview.tracks.size()+"ch-"+System.currentTimeMillis()+".wav"));
-        if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;File target=chooser.getSelectedFile();if(!target.getName().toLowerCase(Locale.ROOT).endsWith(".wav"))target=new File(target.getPath()+".wav");
-        if(target.exists()&&JOptionPane.showConfirmDialog(this,"文件已存在，是否覆盖？","导出 WAV",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;exportWav(target);
+        File target=AudioSaveDialog.choose(this,"导出音频 · "+preview.tracks.size()+" 个独立声道","chaoge-huatan-"+preview.tracks.size()+"ch-"+System.currentTimeMillis(),preview.tracks.size());
+        if(target!=null)exportWav(target);
+    }
+    private void clipAudio(){
+        AudioPreview preview=waveform.preview();if(busy||currentWav==null||preview==null)return;player.pause();
+        AudioClipPanel.open(this,preview,currentWav,currentWav,false,fileName.isEmpty()?"RTP 通话音频":fileName,loopA>=0?loopA:0,loopB>loopA&&loopA>=0?Math.min(loopB,duration()):preview.mixed.durationMs());
     }
     void exportWav(File target){
-        final AudioPreview preview=waveform.preview();if(currentWav==null||preview==null||busy)return;final File destination=target.getAbsoluteFile();setBusy(true,"正在导出 WAV · "+preview.tracks.size()+" 个独立声道…");
+        final AudioPreview preview=waveform.preview();if(currentWav==null||preview==null||busy)return;final File source=currentWav,destination=target.getAbsoluteFile();final AudioExport.Format format=AudioExport.Format.of(target);setBusy(true,"正在导出 "+format+" · "+preview.tracks.size()+" 个独立声道…");
         new SwingWorker<Void,Void>(){
             protected Void doInBackground()throws Exception{
-                java.nio.file.Path temp=Files.createTempFile(destination.getParentFile().toPath(),".huatan-wav-",".part");
-                try{preview.exportWav(temp.toFile());if(isCancelled()||Thread.currentThread().isInterrupted())throw new InterruptedIOException("导出已取消");
-                    try{Files.move(temp,destination.toPath(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(java.nio.file.AtomicMoveNotSupportedException unsupported){Files.move(temp,destination.toPath(),StandardCopyOption.REPLACE_EXISTING);}return null;
-                }finally{Files.deleteIfExists(temp);}
+                AudioClip.different(source,destination);for(AudioPreview.Track track:preview.tracks)AudioClip.different(track.audio,destination);
+                AudioExport.save(destination,format,preview::exportWav,NativeMedia::encodeMp3);return null;
             }
-            protected void done(){if(closed)return;setBusy(false,"");try{get();status("WAV 已导出 · "+preview.tracks.size()+" 个独立声道："+destination.getAbsolutePath());}catch(Exception e){error(e);}}
+            protected void done(){if(closed)return;setBusy(false,"");try{get();status(format+" 已导出 · "+preview.tracks.size()+" 个独立声道："+destination.getAbsolutePath());}catch(Exception e){error(e);}}
         }.execute();
     }
     private void discardAudio(){player.close();player.setLoop(-1,-1);if(routedWav!=null)routedWav.delete();routedWav=null;audible=null;loopA=loopB=-1;if(waveform.preview()!=null)waveform.preview().close();File old=currentWav;currentWav=null;audioStreams=new ArrayList<>();pendingSeek=0;waveform.setData(null);keySummary.setText("生成波形后显示按键信息");if(old!=null&&!old.delete())old.deleteOnExit();audioTitle.setText("选择媒体流，还原音频后显示波形");}
-    private void updateButtons(){for(JButton button:mediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null);button.setToolTipText(mediaPending?"媒体尚未分析完成，完成后可使用":"");}for(JButton button:callMediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null&&!model.callId.isEmpty());if(!mediaPending&&model.callId.isEmpty())button.setToolTipText("请先在左侧选择一通电话");}tabs.setEnabledAt(4,!mediaPending);cancelImport.setVisible(importTask!=null||mediaTask!=null);cancelImport.setText(importTask!=null?"取消导入":"停止后台任务");importButton.setEnabled(!busy);tlsKeyButton.setEnabled(!busy);tlsKeyButton.setText(tlsKeys.size()+rsaKeys.size()==0?"解密密钥":"解密密钥 · "+(tlsKeys.size()+rsaKeys.size()));tlsKeyButton.setToolTipText("RSA 私钥 "+rsaKeys.size()+" 把 / TLS key log "+tlsKeys.size()+" 条；点击可分别导入或清除");demoButton.setEnabled(!busy);callQuick.setEnabled(!busy);callAdvanced.setEnabled(!busy);captureButton.setEnabled(true);fileSelector.setEnabled(!busy);closeFile.setEnabled(!busy&&captureFiles.size()>0);playSelected.setEnabled(!busy&&!mediaPending&&model.analysis!=null);toggle.setEnabled(!busy&&currentWav!=null);export.setEnabled(!busy&&currentWav!=null);updateCompactPlayer();}
+    private void updateButtons(){for(JButton button:mediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null);button.setToolTipText(mediaPending?"媒体尚未分析完成，完成后可使用":"");}for(JButton button:callMediaActions){button.setEnabled(!busy&&!mediaPending&&model.analysis!=null&&!model.callId.isEmpty());if(!mediaPending&&model.callId.isEmpty())button.setToolTipText("请先在左侧选择一通电话");}tabs.setEnabledAt(4,!mediaPending);cancelImport.setVisible(importTask!=null||mediaTask!=null);cancelImport.setText(importTask!=null?"取消导入":"停止后台任务");importButton.setEnabled(!busy);tlsKeyButton.setEnabled(!busy);tlsKeyButton.setText(tlsKeys.size()+rsaKeys.size()==0?"解密密钥":"解密密钥 · "+(tlsKeys.size()+rsaKeys.size()));tlsKeyButton.setToolTipText("RSA 私钥 "+rsaKeys.size()+" 把 / TLS key log "+tlsKeys.size()+" 条；点击可分别导入或清除");demoButton.setEnabled(!busy);callQuick.setEnabled(!busy);callAdvanced.setEnabled(!busy);captureButton.setEnabled(true);fileSelector.setEnabled(!busy);closeFile.setEnabled(!busy&&captureFiles.size()>0);playSelected.setEnabled(!busy&&!mediaPending&&model.analysis!=null);toggle.setEnabled(!busy&&currentWav!=null);export.setEnabled(!busy&&currentWav!=null);clipAudio.setEnabled(!busy&&currentWav!=null&&waveform.preview()!=null);updateCompactPlayer();}
     private void setBusy(boolean value,String text){busy=value;updateButtons();if(!text.isEmpty())status(text);setCursor(Cursor.getPredefinedCursor(value?Cursor.WAIT_CURSOR:Cursor.DEFAULT_CURSOR));}
     private void status(String text){status.setText(text);status.setToolTipText(text);}
     private void error(Throwable error){String message=Ui.error(error);status("操作未完成："+message);if(!GraphicsEnvironment.isHeadless())JOptionPane.showMessageDialog(this,message,"超哥话探",JOptionPane.ERROR_MESSAGE);}

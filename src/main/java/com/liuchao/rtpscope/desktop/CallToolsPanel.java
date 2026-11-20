@@ -32,16 +32,19 @@ final class CallToolsPanel extends JPanel {
     private boolean ready(){if(analysis.get()==null||selected.get().isEmpty()){state.setText("请先选择一通电话");return false;}return true;}
     void export(){
         if(!ready()||task!=null&&!task.isDone())return;Analysis a=analysis.get();String id=selected.get();
-        JCheckBox packets=new JCheckBox("原始关联报文 · PCAPNG",true),audio=new JCheckBox("各方向音频 · WAV",true),html=new JCheckBox("通话体检报告 · HTML",true),maskNumbers=new JCheckBox("报告遮蔽号码",true),maskIps=new JCheckBox("报告遮蔽 IP",true);
-        JPanel p=new JPanel(new GridLayout(0,1,6,6));p.add(packets);p.add(audio);p.add(html);p.add(maskNumbers);p.add(maskIps);p.add(new JLabel("遮蔽只影响报告；PCAP 和音频保留原始内容。"));
+        JCheckBox packets=new JCheckBox("原始关联报文 · PCAPNG",true),audio=new JCheckBox("各方向音频",true),html=new JCheckBox("通话体检报告 · HTML",true),maskNumbers=new JCheckBox("报告遮蔽号码",true),maskIps=new JCheckBox("报告遮蔽 IP",true);
+        JComboBox<AudioExport.Format> format=new JComboBox<>(AudioExport.Format.values());format.setName("callAudioFormat");audio.addActionListener(e->format.setEnabled(audio.isSelected()));
+        JPanel audioRow=new JPanel(new FlowLayout(FlowLayout.LEFT,6,0));audioRow.add(audio);audioRow.add(format);
+        JPanel p=new JPanel(new GridLayout(0,1,6,6));p.add(packets);p.add(audioRow);p.add(html);p.add(maskNumbers);p.add(maskIps);p.add(new JLabel("遮蔽只影响报告；PCAP 和音频保留原始内容。"));
         if(CallExport.includesSharedConnection(a,id))p.add(new JLabel("TCP / TLS 使用完整关联连接，可能包含同连接的其他通话。"));
         if(JOptionPane.showConfirmDialog(this,p,"导出当前通话",JOptionPane.OK_CANCEL_OPTION)!=JOptionPane.OK_OPTION)return;
         if(!packets.isSelected()&&!audio.isSelected()&&!html.isSelected())return;
         JFileChooser fc=new JFileChooser();fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);if(fc.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;
         File dir=new File(fc.getSelectedFile(),"call-"+System.currentTimeMillis());File input=source.get();
         final boolean exportPackets=packets.isSelected(),exportAudio=audio.isSelected(),exportHtml=html.isSelected(),hideNumbers=maskNumbers.isSelected(),hideIps=maskIps.isSelected();
+        final AudioExport.Format audioFormat=(AudioExport.Format)format.getSelectedItem();
         task=new SwingWorker<CallExport.Result,Void>(){protected CallExport.Result doInBackground()throws Exception{
-            return CallExport.bundle(()->input==null?getClass().getResourceAsStream("/demo-analysis.pcap"):new FileInputStream(input),a,id,dir,exportPackets,exportAudio,exportHtml,hideNumbers,hideIps);
+            return CallExport.bundle(()->input==null?getClass().getResourceAsStream("/demo-analysis.pcap"):new FileInputStream(input),a,id,dir,exportPackets,exportAudio,exportHtml,hideNumbers,hideIps,audioFormat,NativeMedia::encodeMp3);
         }protected void done(){busy.accept(false);try{CallExport.Result result=get();state.setText("导出成功 "+result.files.size()+" 项，失败 "+result.failures.size()+" 项 · "+dir.getAbsolutePath());JTextArea text=new JTextArea(result.summary()+"\n保存位置："+dir.getAbsolutePath(),12,60);text.setEditable(false);text.setLineWrap(true);text.setWrapStyleWord(true);JOptionPane.showMessageDialog(CallToolsPanel.this,Ui.scroll(text),result.failures.isEmpty()?"导出完成":"部分项目未能导出",result.failures.isEmpty()?JOptionPane.INFORMATION_MESSAGE:JOptionPane.WARNING_MESSAGE);}catch(Exception e){state.setText(isCancelled()?"导出已取消；已完成的文件保留在 "+dir.getAbsolutePath():"导出未完成："+Ui.error(e));}}};busy.accept(true);state.setText("正在逐项导出…");task.execute();
     }
     void links(){

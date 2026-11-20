@@ -94,6 +94,7 @@ public final class DesktopTest {
         checks+=WorkbenchTest.run(fixtures,out);
         checks+=CallHealthInteractionTest.run(fixtures,out);
         checks+=ChannelExportInteractionTest.run(fixtures,out);
+        checks+=AudioClipInteractionTest.run(fixtures,out);
         checks+=UpdateTest.run(out);
         checks+=TrayTest.run(out);
         System.out.println("PASS: "+checks+" desktop assertions; filtering, capture finalization, real Swing actions, syntax colors, waveform, diagnostic");

@@ -19,9 +19,12 @@ public final class CallExport {
     /** Each artifact and audio direction is isolated. Cancellation still stops the entire job. */
     public static Result bundle(Source source,Analysis a,String id,File dir,boolean packets,boolean audio,boolean html,boolean redact)throws IOException{return bundle(source,a,id,dir,packets,audio,html,redact,redact);}
     public static Result bundle(Source source,Analysis a,String id,File dir,boolean packets,boolean audio,boolean html,boolean maskNumbers,boolean maskIps)throws IOException{
+        return bundle(source,a,id,dir,packets,audio,html,maskNumbers,maskIps,AudioExport.Format.WAV,null);
+    }
+    public static Result bundle(Source source,Analysis a,String id,File dir,boolean packets,boolean audio,boolean html,boolean maskNumbers,boolean maskIps,AudioExport.Format format,AudioExport.Encoder encoder)throws IOException{
         if(!dir.isDirectory()&&!dir.mkdir())throw new IOException("无法建立导出目录");Result result=new Result(dir);
         if(packets)attempt(result,"call.pcapng",f->{try(InputStream in=source.open();OutputStream out=new FileOutputStream(f)){capture(in,a,id,out);}});
-        if(audio)audio(a,id,dir,result);
+        if(audio)audio(a,id,dir,result,format,encoder);
         if(html)attempt(result,"report.html",f->{try(OutputStream out=new FileOutputStream(f)){report(a,id,maskNumbers,maskIps,out);}});
         if(!result.failures.isEmpty()||!result.notes.isEmpty()){
             File log=new File(dir,"导出结果.txt");try(java.io.Writer out=new OutputStreamWriter(new FileOutputStream(log),StandardCharsets.UTF_8)){out.write(result.summary());}catch(IOException e){result.notes.add("无法保存导出结果说明："+message(e));}
@@ -62,10 +65,13 @@ public final class CallExport {
         Result result=new Result(directory);audio(a,id,directory,result);if(!result.failures.isEmpty())throw new IOException(result.summary());return result.files;
     }
     private static void audio(Analysis a,String id,File directory,Result result)throws IOException{
+        audio(a,id,directory,result,AudioExport.Format.WAV,null);
+    }
+    private static void audio(Analysis a,String id,File directory,Result result,AudioExport.Format format,AudioExport.Encoder encoder)throws IOException{
         Map<String,List<RtpStream>> groups=new LinkedHashMap<>();for(RtpStream s:a.streams)if(s.callId.equals(id)&&s.playable()&&!s.packets.isEmpty())groups.computeIfAbsent(s.src+" → "+s.dst,k->new ArrayList<>()).add(s);
-        if(groups.isEmpty())result.failures.put("各方向 WAV","当前通话没有可解码的 RTP 媒体");
+        if(groups.isEmpty())result.failures.put("各方向 "+format,"当前通话没有可解码的 RTP 媒体");
         int n=0;for(Map.Entry<String,List<RtpStream>> group:groups.entrySet()){
-            String name="direction-"+(++n)+".wav";attempt(result,name,f->AudioRenderer.render(group.getValue(),f));
+            String name="direction-"+(++n)+"."+format.extension;attempt(result,name,f->AudioExport.save(f,format,wav->AudioRenderer.render(group.getValue(),wav),encoder));
             result.notes.add(name+" · "+group.getKey());
             for(RtpStream stream:group.getValue()){long repairs=stream.quality==null?0:stream.quality.timestampResets;if(repairs>0)result.notes.add(name+" · RTP 时间轴衔接 "+repairs+" 处，原始抓包保留原始时间戳");}
         }

@@ -22,15 +22,20 @@ public final class WaveformPanel extends JPanel {
     private Runnable windowListener;
     private DoubleConsumer seek;
     private Consumer<AudioPreview.Key> keyListener;
+    private BiConsumer<Double,Double> selectionListener;
+    private double selectionStart=-1,selectionEnd=-1,dragAnchor;
+    private int dragX;
+    private boolean dragging;
     public WaveformPanel() {
         setBackground(Ui.PANEL);setToolTipText("点击波形定位，点击按键标签看详情");
-        addMouseListener(new MouseAdapter(){public void mousePressed(MouseEvent e){if(preview==null)return;KeyBadge badge=badgeAt(e.getPoint());if(badge!=null){if(seek!=null)seek.accept(badge.key.startMs);if(keyListener!=null)keyListener.accept(badge.key);}else if(seek!=null)seek.accept(timeAt(e.getX()));}});
-        addMouseWheelListener(e->{if(preview==null)return;if(e.isControlDown()){viewport.zoomAt(Math.pow(1.25,-e.getPreciseWheelRotation()),(e.getX()-Ui.u(14))/(double)Math.max(1,getWidth()-Ui.u(28)));windowChanged();e.consume();}else if(e.isShiftDown()){viewport.pan(e.getPreciseWheelRotation()*viewport.spanMs()/10);windowChanged();e.consume();}else{Container parent=SwingUtilities.getAncestorOfClass(JScrollPane.class,this);if(parent!=null)parent.dispatchEvent(SwingUtilities.convertMouseEvent(this,e,parent));}});
+        addMouseListener(new MouseAdapter(){public void mousePressed(MouseEvent e){if(preview==null||!isEnabled())return;if(selectionListener!=null){dragAnchor=timeAt(e.getX());dragX=e.getX();dragging=true;}KeyBadge badge=badgeAt(e.getPoint());if(badge!=null){if(seek!=null)seek.accept(badge.key.startMs);if(keyListener!=null)keyListener.accept(badge.key);}else if(seek!=null)seek.accept(timeAt(e.getX()));}public void mouseReleased(MouseEvent e){dragging=false;}});
+        addMouseMotionListener(new MouseMotionAdapter(){public void mouseDragged(MouseEvent e){if(!isEnabled()||!dragging||selectionListener==null||Math.abs(e.getX()-dragX)<3)return;double at=timeAt(e.getX());if(at==dragAnchor)return;setSelection(Math.min(dragAnchor,at),Math.max(dragAnchor,at));selectionListener.accept(selectionStart,selectionEnd);}});
+        addMouseWheelListener(e->{if(preview==null||!isEnabled())return;if(e.isControlDown()){viewport.zoomAt(Math.pow(1.25,-e.getPreciseWheelRotation()),(e.getX()-Ui.u(14))/(double)Math.max(1,getWidth()-Ui.u(28)));windowChanged();e.consume();}else if(e.isShiftDown()){viewport.pan(e.getPreciseWheelRotation()*viewport.spanMs()/10);windowChanged();e.consume();}else{Container parent=SwingUtilities.getAncestorOfClass(JScrollPane.class,this);if(parent!=null)parent.dispatchEvent(SwingUtilities.convertMouseEvent(this,e,parent));}});
         addComponentListener(new ComponentAdapter(){public void componentResized(ComponentEvent e){revalidate();}});
         getAccessibleContext().setAccessibleName("分方向音频波形与可点击的 DTMF 按键标签");
     }
     public void setData(WaveformData value){setPreview(AudioPreview.fromWaveform(value));}
-    public void setPreview(AudioPreview value){preview=value;position=0;viewport.reset(value==null?1:value.mixed.durationMs());windowChanged();getAccessibleContext().setAccessibleDescription(value==null?"尚未生成波形":value.keySummary());}
+    public void setPreview(AudioPreview value){preview=value;position=0;selectionStart=selectionEnd=-1;dragging=false;viewport.reset(value==null?1:value.mixed.durationMs());windowChanged();getAccessibleContext().setAccessibleDescription(value==null?"尚未生成波形":value.keySummary());}
     public WaveformViewport viewport(){return viewport;}
     public void setWindowListener(Runnable value){windowListener=value;}
     public void zoomBy(double factor){viewport.zoomAt(factor,viewport.contains(position)?viewport.fractionAt(position):0.5);windowChanged();}
@@ -41,6 +46,11 @@ public final class WaveformPanel extends JPanel {
     public AudioPreview preview(){return preview;}
     public WaveformData data(){return preview==null?null:preview.mixed;}
     public void setPosition(double ms){position=ms;repaint();}
+    public double position(){return position;}
+    public void setSelection(double startMs,double endMs){selectionStart=startMs;selectionEnd=endMs;repaint();}
+    public double selectionStart(){return selectionStart;}
+    public double selectionEnd(){return selectionEnd;}
+    public void setSelectionListener(BiConsumer<Double,Double> listener){selectionListener=listener;}
     public void setSeekListener(DoubleConsumer listener){seek=listener;}
     public void setKeyListener(Consumer<AudioPreview.Key> listener){keyListener=listener;}
     public static Color trackColor(int index){return COLORS[index%COLORS.length];}
@@ -99,6 +109,9 @@ public final class WaveformPanel extends JPanel {
                 Rectangle r=b.bounds;g.setColor(new Color(0xe1f4eb));g.fillRoundRect(r.x,r.y,r.width,r.height,Ui.u(6),Ui.u(6));g.setColor(Ui.POSITIVE);g.drawRoundRect(r.x,r.y,r.width,r.height,Ui.u(6),Ui.u(6));g.setFont(Ui.font(12));FlowPanel.centered(g,b.key.badgeText(),r.x+r.width/2,r.y+Ui.u(15),r.width-Ui.u(6));g.drawLine(x(b.key.startMs),r.y+r.height,x(b.key.startMs),plotTop);
             }
             g.setColor(Ui.LINE);g.drawLine(left,top+layout.height[track],left+width,top+layout.height[track]);
+        }
+        if(selectionStart>=0&&selectionEnd>selectionStart&&selectionEnd>=viewport.startMs()&&selectionStart<=viewport.endMs()){
+            int a=x(Math.max(viewport.startMs(),selectionStart)),b=x(Math.min(viewport.endMs(),selectionEnd));g.setColor(new Color(0x220067c0,true));g.fillRect(a,0,Math.max(1,b-a),layout.total-Ui.u(22));g.setColor(Ui.ACCENT);for(double edge:new double[]{selectionStart,selectionEnd})if(viewport.contains(edge)){int xx=x(edge);g.drawLine(xx,0,xx,layout.total-Ui.u(22));g.fillRect(xx-Ui.u(2),0,Ui.u(5),Ui.u(10));}
         }
         g.setColor(new Color(0x475569));int cursor=x(position);if(viewport.contains(position))g.drawLine(cursor,0,cursor,layout.total-Ui.u(22));g.setFont(Ui.font(11));g.setColor(Ui.MUTED);
         for(int n=0;n<=4;n++){String tick=String.format(Locale.ROOT,"%.2fs",(viewport.startMs()+duration*n/4)/1000);int xx=left+width*n/4;if(n==0)g.drawString(tick,xx,layout.total-Ui.u(5));else if(n==4)g.drawString(tick,xx-g.getFontMetrics().stringWidth(tick),layout.total-Ui.u(5));else FlowPanel.centered(g,tick,xx,layout.total-Ui.u(5),Ui.u(110));}g.dispose();
